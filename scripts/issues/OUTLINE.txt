@@ -1,0 +1,273 @@
+# Guardian issue outline: the single source of truth for keys, repositories, titles, labels and dependencies.
+# Format: KEY | repo | title | area | type | size | blocked-by keys (space separated, or -) | flags (optional: needs-human)
+# repo is an alias from outline.config.ts or owner/name. A trailing #N points at an issue that already exists:
+# it is labelled and linked into the graph, never recreated (its area/type/size cells are informational).
+# Order is execution order. A blocker must appear above the issue it blocks.
+# Phase headers: "## P<n> | milestone title | one-line goal"
+
+## P0 | P0 Program setup | Hub repository, plan, issue graph and the new repositories the program needs.
+P0.01 | guardian | Scaffold the Guardian Stacks app and publish stacksjs/guardian | app | infra | S | -
+P0.02 | guardian | Write docs/PLAN.md and AGENTS.md for the program | docs | infra | S | P0.01
+P0.03 | guardian | Multi-repository issue graph tooling: create, sync-ready, existing-issue nodes | graph | infra | M | P0.01
+P0.04 | guardian | Scheduled cross-repository readiness sync with an ISSUE_GRAPH_TOKEN secret | graph | infra | S | P0.03 | needs-human
+P0.05 | guardian | Create the public zig-utils/zig-anti-virus and zig-utils/zig-mime repositories | build | infra | S | P0.01
+
+## P1 | P1 Toolchain and templates | One pinned Zig toolchain, a starter template that ships libraries and bindings, and benchmark tooling that measures memory.
+P1.01 | starter | Pin Zig 0.17.0-dev.1857 or newer through pantry, build.zig.zon, CI and the README | build | infra | S | -
+P1.02 | starter | Remove the committed test binary and fix .gitignore | build | fix | S | -
+P1.03 | starter | Static and dynamic library steps with a versioned C ABI sample and header | build | new | S | P1.01
+P1.04 | starter | Test step covers main.zig and every module; set an optimize mode on the library module | build | fix | S | P1.01
+P1.05 | starter | bun:ffi TypeScript binding template that finds local or prebuilt libraries | capi | new | M | P1.03
+P1.06 | starter | Release workflow: prebuilt libraries for six targets, pantry and npm publishing | build | infra | M | P1.03 P1.05
+P1.07 | starter | Fuzz, bench and ReleaseSafe test steps | build | test | S | P1.04
+P1.08 | starter | Windows CI and a CPU-variant build matrix | build | infra | S | P1.06
+P1.09 | starter | Dependencies as pantry registry URL and hash entries; fix the package.jsonc paths | build | fix | S | P1.01
+P1.10 | starter | Release zig-starter and document how to start a library from it | build | gate | S | P1.02 P1.06 P1.07 P1.08 P1.09
+P1.11 | zbench | Port zig-benchmarks to the Zig 0.17 std I/O and timer APIs | bench | port | S | -
+P1.12 | zbench | External-process benchmark mode with RSS, PSS and private-dirty sampling | bench | new | M | P1.11
+P1.13 | zav | Scaffold zig-anti-virus from zig-starter with the engine module map | build | infra | S | P0.05 P1.10
+P1.14 | mime | Scaffold zig-mime from zig-starter | build | infra | S | P0.05 P1.10
+
+## P2 | P2 Shared Zig libraries | Byte-mode regex, a shared literal-matching engine, streaming MIME and the library fixes the engine depends on.
+P2.01 | regex | Byte-mode compilation: raw \xHH, dot matches any byte, byte classes | lib | new | M | -
+P2.02 | regex | Allocation-free matcher with caller-supplied scratch | lib | perf | M | P2.01
+P2.03 | regex | Configurable lazy-DFA state cap and per-match step budget | lib | new | S | P2.02
+P2.04 | regex | Required-literal factor extraction API for prefilters | lib | new | S | P2.01
+P2.05 | regex | Serialisable compiled programs that load without allocation | lib | new | M | P2.02
+P2.06 | regex | literals: Teddy multi-literal search for small pattern sets | lib | perf | M | -
+P2.07 | regex | literals: binary-safe Aho-Corasick with case folding, pattern ids and relocatable serialisation | lib | new | M | P2.06
+P2.08 | regex | literals: sampled split-block Bloom prefilter with stride tiers | lib | perf | M | P2.06
+P2.09 | regex | Benchmarks for byte mode and literals against PCRE2 and Hyperscan-style baselines | bench | perf | S | P2.05 P2.07 P2.08 P1.12
+P2.10 | regex | Release zig-regex with byte mode and the literals module | lib | gate | S | P2.03 P2.04 P2.09
+P2.11 | mime | Streaming MIME walker with SIMD boundary search and a nested multipart stack | formats | new | M | P1.14
+P2.12 | mime | Streaming base64 and quoted-printable decoders feeding a sink | formats | new | S | P2.11
+P2.13 | mime | Header parsing with RFC 2047 and 2231 decoding; ContentType and boundary validation ported from mail | formats | port | M | P2.11
+P2.14 | mime | Evasion tolerance: bare LF, missing final boundary, duplicate boundaries, depth limits | formats | test | S | P2.12 P2.13
+P2.15 | mime | Fuzz and differential tests against the mail parser; release zig-mime | formats | gate | S | P2.14
+P2.16 | xml | Incremental Io.Reader input mode for the pull tokenizer | lib | new | M | -
+P2.17 | zcli | Close the gaps the zav CLI needs: nested subcommands, repeatable options, exit codes, JSON output | cli | fix | S | -
+P2.18 | zconfig | Environment overlay and file merge fixes needed by zavd configuration | lib | fix | S | -
+P2.19 | home | Compression package: zstd, brotli and lz4 are not the spec formats; make them conform | lib | fix | M | -
+
+## P3 | P3 Engine foundations | Signed mmapped signature database, the hash index, and the first end-to-end scan.
+P3.01 | zav | Commit docs/DESIGN.md: the engine's performance and memory design | docs | infra | S | P1.13
+P3.03 | zav | CVD and CLD reader: header, tar.gz, MD5 and digital signature verification | db | new | M | P1.13
+P3.02 | zav | E0: census of the ClamAV main and daily databases | db | experiment | M | P3.01 P3.03
+P3.04 | zav | Rule IR and parsers for .hdb .hsb .mdb .msb and .imp | db | new | M | P3.03
+P3.05 | zav | .fp .sfp .ign2 handling and functionality-level filtering with a coverage report | db | new | S | P3.04
+P3.06 | zav | .zavdb container: header, section table, BLAKE3 root, ed25519 signature, raw mmap loader | db | new | M | P1.13
+P3.07 | zav | Hash index: size-gated need map, hot prefix tier, cold full digests, tokenised names | hash | new | L | P3.04 P3.06
+P3.08 | zav | Fused multihash with CPU-variant builds and hardware SHA-1 and SHA-256 dispatch | hash | perf | M | P1.13 P1.08
+P3.09 | zav | E1: hash index lookup cost and the share of hashed bytes skipped | hash | experiment | S | P3.07
+P3.10 | zav | E8: hardware hashers on baseline and native builds | hash | experiment | S | P3.08
+P3.11 | zav | MalwareBazaar CSV import into the SHA-256 table, opt-in and keyed | db | new | S | P3.07
+P3.12 | zav | Source abstraction, scratch arenas and scan limits | engine | new | M | P1.13
+P3.13 | zav | zav CLI skeleton: scan, compile, info, coverage | cli | new | S | P2.17 P3.06
+P3.16 | zav | Benign corpus manifests and fetch script shared by the atom model and the benchmarks | bench | infra | S | P1.13
+P3.14 | zav | EICAR built-in signature and the first end-to-end hash scan | engine | test | S | P3.07 P3.08 P3.12 P3.13
+P3.15 | zav | Phase gate: every ClamAV hash signature compiles and raw files scan against it | engine | gate | S | P3.02 P3.05 P3.09 P3.10 P3.11 P3.14
+
+## P4 | P4 Pattern matching and signature languages | Atom prefilters instead of an in-RAM automaton, the verify VM, logical signatures, PCRE, YARA and Guardian rules.
+P4.01 | zav | Hex-signature IR: literals, masked nibbles, gaps, alternations, negations, modifiers | db | new | M | P3.04
+P4.02 | zav | .ndb parser with offsets (absolute, entry point, end of file, section) and target types | db | new | M | P4.01
+P4.03 | zav | Benign-corpus 4-gram frequency model and atom selection with tiers A to D | match | new | M | P4.01 P3.02 P3.16
+P4.04 | zav | Partitioned split-block Bloom prefilters and atom tables in the blob | match | perf | M | P4.03 P2.08
+P4.05 | zav | Stage-one probe kernels with SIMD hashing for x86_64 and aarch64 | match | perf | M | P4.04
+P4.06 | zav | Verify VM with per-subsignature and per-file step budgets | match | new | L | P4.02
+P4.07 | zav | Anchored-offset index for fixed-offset signatures | match | new | S | P4.02
+P4.08 | zav | .ldb parser: subsignatures, target description predicates, logical expressions to RPN | db | new | L | P4.02
+P4.09 | zav | Sparse per-file logical-signature state and evaluation | match | new | M | P4.08 P4.06
+P4.10 | zav | Tier-D deferral through required-partner analysis | match | perf | M | P4.09 P4.03
+P4.11 | zav | PCRE subsignatures through zig-regex byte mode | match | new | M | P4.09 P2.10
+P4.12 | zav | Byte-compare subsignatures | match | new | S | P4.09
+P4.13 | zav | .ftm file-type magic trie and .cdb container signatures | db | new | M | P4.02
+P4.14 | zav | YARA subset compiler: text, hex and regex strings with string conditions | db | new | L | P4.09 P2.10
+P4.15 | zav | Guardian rules: YARA subset plus TOML metadata, compiler support and a starter rule pack | db | new | M | P4.14
+P4.16 | zav | E2: prefilter bake-off (split-block Bloom, FDR, double-array Aho-Corasick, Teddy) | match | experiment | M | P4.05 P2.07
+P4.17 | zav | E3: atom selection against prefix selection, and tier-D deferral coverage | match | experiment | S | P4.10
+P4.18 | zav | E4: verify VM worst cases with the full database | match | experiment | S | P4.06 P4.09
+P4.19 | zav | E13: zig-regex byte mode against PCRE2 on ClamAV PCRE and YARA regex | match | experiment | S | P4.11 P4.14
+P4.20 | zav | Differential tests against libclamav for every signature grammar feature | match | test | M | P4.09 P4.11 P4.12 P4.13
+P4.21 | zav | Phase gate: every in-scope signature type compiles, matches and passes differential tests | match | gate | S | P4.07 P4.15 P4.16 P4.17 P4.18 P4.19 P4.20
+
+## P5 | P5 Containers, executables and normalisers | Bounded streaming parsers for the formats that carry most detections.
+P5.01 | zav | Container framework: child sources, depth stack, ratio guard, budgets, spill files | formats | new | M | P3.12
+P5.02 | zav | gzip, bzip2, xz and zstd streaming decoders behind the big-window budget | formats | new | M | P5.01
+P5.03 | zav | zip parser: zip64, data descriptors, encryption, overlapping entries, local-header fallback | formats | new | M | P5.01
+P5.04 | zav | tar and cpio | formats | new | S | P5.01
+P5.05 | zav | PE parser: headers, sections, entry point, imports, section hashes | formats | new | L | P5.01
+P5.06 | zav | ELF and Mach-O (including fat binaries) parsers | formats | new | M | P5.01
+P5.07 | zav | HTML normaliser compatible with ClamAV target type 3 | formats | new | M | P5.01
+P5.08 | zav | ASCII text normaliser for target type 7 | formats | new | S | P5.01
+P5.09 | zav | MIME email scanning through zig-mime | formats | new | S | P5.01 P2.15
+P5.10 | zav | OOXML through zig-xml, including vbaProject detection | formats | new | M | P5.03 P2.16
+P5.11 | zav | OLE2 compound files and VBA (MS-OVBA) decompression | formats | new | L | P5.01
+P5.12 | zav | PDF: objects, streams, filters, object streams, JavaScript extraction | formats | new | L | P5.02
+P5.13 | zav | JavaScript normaliser | formats | new | M | P5.07
+P5.14 | zav | RTF and 7z with LZMA | formats | new | M | P5.02
+P5.15 | zav | Heuristics: entropy in risky places, header anomalies, extension mismatch, script obfuscation | engine | new | M | P5.05 P5.06
+P5.16 | zav | E7: std decoders against zlib-ng, libdeflate and libzstd | formats | experiment | S | P5.02 P1.12
+P5.17 | zav | Fuzz targets and the adversarial corpus: bombs, deep nesting, pathological PDF and HTML | formats | test | M | P5.03 P5.12 P5.07
+P5.18 | zav | CAB, CHM, NSIS, ISO9660 and DMG | formats | new | L | P5.02
+P5.19 | zav | Unpackers in order of corpus impact, UPX first | formats | new | L | P5.05
+P5.20 | zav | Phase gate: phase-one and phase-two formats scan with bounded time and memory | formats | gate | S | P5.04 P5.08 P5.09 P5.10 P5.11 P5.13 P5.14 P5.15 P5.16 P5.17
+
+## P6 | P6 Runtime, daemon, bindings and benchmarks | Work-stealing runtime, a clamd-compatible daemon, the C ABI and TypeScript package, and the gates against clamd.
+P6.01 | zav | Work-stealing pool with a bounded injector and backpressure | runtime | new | M | P3.12
+P6.02 | zav | I/O layer: pread streaming, io_uring small-file batches, getattrlistbulk directory walking | runtime | perf | M | P6.01
+P6.03 | zav | Scan pipeline: hashing, prefilter, verify and containers in one pass | engine | new | L | P4.21 P5.20 P6.01
+P6.04 | zav | Persisted scan cache with seqlock entries and the racy-timestamp rule | engine | perf | M | P6.03
+P6.05 | zav | Delta blobs and delta rescan of files cached clean under older databases | engine | perf | M | P6.04
+P6.06 | zav | Database reload with epoch reclamation | runtime | new | S | P6.03
+P6.07 | zav | Event loop for Unix sockets and TCP (epoll, io_uring, kqueue) | daemon | new | M | P6.01
+P6.08 | zav | clamd protocol: every command, z, n and bare prefixes, IDSESSION, FILDES | daemon | new | L | P6.07 P6.03
+P6.09 | zav | Incremental INSTREAM scanning with spill | daemon | perf | M | P6.08
+P6.10 | zav | clamd.conf parser and zavd configuration | daemon | new | S | P6.08 P2.18
+P6.11 | zav | Native multiplexed protocol zavp/1 with a Zig client | daemon | new | M | P6.08
+P6.12 | zav | C ABI zav.h: engine, scratch, buffer, fd, path and stream scans, async completion queue | capi | new | M | P6.03
+P6.13 | zav | @zig-utils/anti-virus TypeScript package over bun:ffi with prebuilt libraries | capi | new | M | P6.12 P1.06
+P6.14 | zav | Updater: ClamAV CVD and cdiff fetch, out-of-process compile, atomic swap and reload | update | new | M | P6.06 P3.03
+P6.15 | zav | Benchmark harness: corpus manifests, clamd driver, memory sampler, result files | bench | new | M | P6.08 P1.12 P3.16
+P6.16 | zav | E5: idle, nominal and peak memory, and the reload delta | bench | experiment | S | P6.15 P6.06
+P6.17 | zav | E6: pread against mmap against io_uring, and page-cache hygiene | bench | experiment | S | P6.15 P6.02
+P6.18 | zav | E10: scan-cache fault injection and warm-rescan speedup | bench | experiment | S | P6.04 P6.05
+P6.19 | zav | E12: huge pages for the hot region and 128-byte layouts | bench | experiment | S | P6.15
+P6.20 | zav | E14: 1000 concurrent INSTREAM connections against clamd | bench | experiment | S | P6.09 P6.15
+P6.21 | zav | E9: detection parity and false positives against clamd | bench | experiment | M | P6.15
+P6.22 | zav | CI gates: per-PR kernel benchmarks and the nightly macro run | bench | infra | M | P6.16 P6.17 P6.18 P6.20 P6.21
+P6.23 | zav | Release zav 0.1 with the daemon, C ABI and TypeScript package | build | gate | S | P6.09 P6.10 P6.11 P6.13 P6.14 P6.18 P6.19 P6.20 P6.22
+
+## P7 | P7 Host protection, CVE automation and real-time watching | linux-guardian's checks done properly, CVE matching from KEV, NVD and OSV, and on-access scanning.
+P7.01 | zav | Findings model, scoring, server context and suppression config | host | new | S | P3.13
+P7.02 | zav | Linux process checks from /proc: miners, temp-dir executables, deleted binaries, hidden processes, memfd | host | new | M | P7.01
+P7.03 | zav | Network checks: reverse shells and suspicious listeners from /proc/net and process fds | host | new | M | P7.01
+P7.04 | zav | Kernel checks: modules against /sys/module, taint, signatures, eBPF programs, bootloader | host | new | M | P7.01
+P7.05 | zav | Persistence and access: cron, at, systemd, SSH keys and config, auth-log brute force, LD_PRELOAD | host | new | M | P7.01
+P7.06 | zav | Privilege checks: SUID and SGID drift, file capabilities | host | new | S | P7.01
+P7.07 | zav | Hardening checks: firewall, sysctls, MAC, disk encryption, containers, pending updates | host | new | M | P7.01
+P7.08 | zav | Package integrity and ownership (dpkg, rpm, apk) instead of hard-coded allowlists | host | new | M | P7.01
+P7.09 | zav | macOS checks: launchd persistence, login items, unsigned Library binaries, quarantine xattr | host | new | M | P7.01
+P7.10 | zav | Hash-skip cache for host scans | host | perf | S | P6.04 P7.02
+P7.11 | zav | CVE feeds: CISA KEV, incremental NVD API 2.0, OSV | cve | new | M | P3.06
+P7.12 | zav | .zavcve index with canonical version comparison per ecosystem | cve | new | M | P7.11
+P7.13 | zav | Inventory collectors: dpkg, rpm, apk, Homebrew, pantry, lockfiles, Go buildinfo, Info.plist, banners | cve | new | L | P7.12
+P7.14 | zav | zav audit and zav host commands with JSON output and severity exit codes | cli | new | S | P7.02 P7.13
+P7.15 | zav | fanotify real-time protection with ignore marks and a deadline policy | watch | new | M | P6.03
+P7.16 | zav | FSEvents watcher for macOS | watch | new | S | P6.03
+P7.17 | zav | Endpoint Security helper for blocking protection on macOS | watch | new | M | P7.16 | needs-human
+P7.18 | zav | E11: fanotify permission-event latency | watch | experiment | S | P7.15
+P7.19 | zav | Phase gate: host, CVE and watch layers verified on Linux and macOS | host | gate | S | P7.03 P7.04 P7.05 P7.06 P7.07 P7.08 P7.09 P7.10 P7.14 P7.18
+
+## P8 | P8 Framework and TypeScript libraries | Native Stacks scanning at every upload surface, and the TypeScript libraries that accept files.
+P8.01 | stacks | @stacksjs/malware core package: types, config/malware.ts, drivers guardian, clamd and none | framework | new | M | P6.13
+P8.02 | stacks | Storage.put and UploadedFile.store scanning with PutFileOptions.scan and UploadedFile.scan() | storage | new | M | P8.01
+P8.03 | stacks | Storage.putStream scanning tee | storage | new | S | P8.01
+P8.04 | stacks | Presigned uploads: quarantine prefix and a scan-then-promote job | storage | new | M | P8.01
+P8.05 | stacks | File manager scan task kind and ScanStorageFileJob | storage | new | M | P8.02
+P8.06 | stacks | Forms, feedback and test-upload paths scan before writing | storage | fix | S | P8.02
+P8.07 | stacks | file().clean() validation rule, and wire up verifyUploadedMime | framework | new | S | P8.01
+P8.08 | stacks | Quarantine model, disk, restore and delete actions, and a dashboard page | framework | new | M | P8.02
+P8.09 | stacks | Inbound email: honour the SES virus verdict and scan attachments in parseInboundEmail | email | new | M | P8.01
+P8.10 | stacks | Fix email.server.scan: false still enables scanning, and any value enables the mail server | email | fix | S | -
+P8.11 | stacks | AI ingestion paths scan uploaded audio and fetched files | framework | new | S | P8.01
+P8.12 | stacks | stacks-malware skill, docs page and stacks-native catalog entry | docs | infra | S | P8.08
+P8.13 | stacks | Release the framework with malware scanning | framework | gate | S | P8.03 P8.04 P8.05 P8.06 P8.07 P8.09 P8.10 P8.11 P8.12
+P8.14 | broadcasting | Optional scan hook for binary message payloads | framework | new | S | P6.13
+P8.15 | sftp | Scanning filesystem wrapper with staged uploads and a scan on close | storage | new | M | P6.13
+P8.16 | lfs | Scan LFS objects after verification, with the verdict cached by oid | storage | new | S | P6.13
+P8.17 | backups | Fix path traversal in restoreDirectory | security | fix | S | -
+P8.18 | backups | Scan snapshots and archive entries on restore | storage | new | S | P8.17 P6.13
+P8.19 | images | Detect trailing data and polyglots in detectFormat, with an optional pre-decode scan | security | new | M | P6.13
+P8.20 | rpx | Per-route scan option for request bodies in the TypeScript proxy | waf | new | M | P6.13
+P8.21 | zsftp | Write handler with staged uploads and a scan on CLOSE | storage | new | M | P6.12
+P8.22 | heic | Structure and trailing-data checks before decode, with an optional pre-decode scan hook | security | new | S | P8.19
+P8.23 | avif | Structure and trailing-data checks before decode, with an optional pre-decode scan hook | security | new | S | P8.19
+P8.24 | videos | Container sanity checks and an optional scan hook for untrusted sources | security | new | S | P8.19
+P8.25 | stacks | AI image inputs: restrict URL fetching (scheme, private ranges, redirects, size) and file paths | security | fix | S | -
+
+## P9 | P9 zig-waf as the HTTP layer | Finish zig-waf's roadmap in the order Guardian needs it, scan uploads at the edge, and share one console.
+P9.01 | waf#6 | WAF-05 benchmark laboratory, sharing zig-benchmarks' external-process sampler | bench | perf | M | P1.12
+P9.02 | waf#35 | WAF-34 pass the complete SecRules Test Set | waf | test | M | -
+P9.03 | waf#36 | WAF-35 ModSecurity 3.0.16 differential regression tests | waf | test | M | -
+P9.04 | waf#37 | WAF-36 Coraza 3.7.0 differential and HTTP E2E tests | waf | test | M | -
+P9.05 | waf#38 | WAF-37 reach 100 percent CRS 4.28 FTW compatibility | waf | test | L | P9.02 P9.03 P9.04
+P9.06 | waf#28 | WAF-27 XML, XPath, XSD and DTD processing | waf | new | L | -
+P9.07 | waf | C ABI operator registration: zig_waf_register_operator | capi | new | M | -
+P9.08 | waf | Guardian @inspectFile operator that links zav in process | waf | new | M | P9.07 P6.12
+P9.09 | waf | Move @pm, @pmFromFile and phrase matching onto zig-regex literals with identical evidence | waf | perf | M | P2.10 P9.05 P9.01
+P9.10 | waf | Evaluate zig-mime for multipart parsing under the identical-evidence rule | waf | experiment | S | P2.15 P9.05
+P9.11 | rpx | Dataplane: spool large and chunked bodies and scan uploads through @inspectFile | waf | new | M | P9.08
+P9.36 | waf | Asynchronous verdict cache so large uploads never stall @inspectFile workers | waf | perf | M | P9.08
+P9.12 | waf#50 | WAF-49 node enrollment, mTLS rotation, heartbeats and inventory, shared with Guardian hosts | waf | new | L | -
+P9.13 | waf#61 | WAF-60 STX local-link, pinned-CI and embedded-asset pipeline, as a reusable component library | ui | infra | M | -
+P9.14 | waf#62 | WAF-61 design system, application shell, auth and onboarding | ui | new | M | P9.13
+P9.15 | waf#63 | WAF-62 fleet overview, enrollment and node-detail views | ui | new | M | P9.14 P9.12
+P9.16 | waf#64 | WAF-63 ruleset authoring, validation, diff, rollout and rollback | ui | new | L | P9.14
+P9.17 | waf#65 | WAF-64 event-driven exclusion wizard | ui | new | M | P9.14
+P9.18 | waf#66 | WAF-65 live security events and transaction detail | ui | new | M | P9.14
+P9.19 | waf#67 | WAF-66 partition-aware audit search and export | ui | new | M | P9.18
+P9.20 | waf#68 | WAF-67 metrics, dashboards, alerts and webhook management | ui | new | M | P9.14
+P9.21 | waf#69 | WAF-68 rule playground, phase trace and replay laboratory | ui | new | M | P9.16
+P9.22 | waf#70 | WAF-69 users, roles, OIDC, tokens, certificates, PostgreSQL and retention settings | ui | new | M | P9.14
+P9.23 | waf#71 | WAF-70 UI E2E, accessibility, visual, security and performance tests | ui | test | M | P9.15 P9.16 P9.17 P9.18 P9.19 P9.20 P9.21 P9.22
+P9.24 | waf#42 | WAF-41 HTTP/2 adapter | waf | new | M | -
+P9.25 | waf#44 | WAF-43 routing, health checks, retries, backpressure and graceful drain | waf | new | M | -
+P9.26 | waf#45 | WAF-44 Nginx connector | waf | new | M | P9.07
+P9.27 | waf#46 | WAF-45 Caddy connector | waf | new | M | P9.07
+P9.28 | waf#47 | WAF-46 Envoy proxy-WASM connector | waf | new | M | P9.07
+P9.29 | waf#48 | WAF-47 HAProxy SPOE connector | waf | new | M | P9.07
+P9.31 | cloud | Accept WAF mode and exclusions from Stacks config and ship zig-waf audit events to Guardian | waf | new | M | -
+P9.30 | stacks | security.waf config section passed to ts-cloud's zig-waf generator on box deploys | waf | new | M | P9.31
+P9.32 | stacks | Optional @stacksjs/waf router middleware over the zig-waf C ABI | waf | new | M | P9.07
+P9.33 | waf#72 | WAF-71 package binaries, libraries, containers, system services and Helm | build | infra | M | P9.11 P9.24 P9.25
+P9.34 | waf#73 | WAF-72 migration, operator, API, plugin, PostgreSQL and security documentation | docs | infra | M | P9.33
+P9.35 | waf#74 | WAF-73 v1.0 compatibility, performance, soak, recovery and security qualification | waf | gate | L | P9.05 P9.06 P9.09 P9.10 P9.36 P9.23 P9.26 P9.27 P9.28 P9.29 P9.34
+
+## P10 | P10 Guardian app and CLI | One operator surface for files, hosts, CVEs and the web firewall, and a guardian CLI.
+P10.01 | guardian | Domain models and generated migrations: Scan, Detection, QuarantineItem, Host, Finding, CveExposure, SignatureFeed, Policy, WafEvent | app | new | M | P0.01
+P10.02 | guardian | Host enrolment and ingest API for scans, findings, CVE exposure and WAF events | app | new | M | P10.01
+P10.03 | guardian | packages/core: engine client, policy and report model | app | new | M | P6.13
+P10.04 | guardian | packages/cli: guardian scan, watch, host, audit, update, quarantine, daemon, status, enrol | cli | new | L | P10.03 P7.14
+P10.05 | guardian | Expose the CLI through app/Commands and a published bin | cli | new | S | P10.04
+P10.06 | guardian | Dashboard shell and overview with the fleet score, through the design-taste pre-flight | ui | new | M | P10.01 P9.14
+P10.07 | guardian | Detections and quarantine pages | ui | new | M | P10.06 P10.02
+P10.08 | guardian | Hosts and host-findings pages | ui | new | M | P10.06 P10.02
+P10.09 | guardian | CVE exposure page, KEV first, with virtual-patch proposals | ui | new | M | P10.08 P9.16
+P10.10 | guardian | WAF section built from the zig-waf console component library | ui | new | M | P10.06 P9.18 P9.17
+P10.11 | guardian | Detection-to-enforcement flow: wizard exclusions become reviewed config changes, then mode graduation | waf | new | M | P10.10 P9.31
+P10.12 | guardian | Correlation and a per-host risk score across files, WAF and host findings | app | new | M | P10.07 P10.08 P10.10
+P10.13 | guardian | Distribution endpoints for the Guardian rule feed and the CVE index | update | new | S | P10.02 P4.15 P7.12
+P10.14 | guardian | Signature feeds and policies pages | ui | new | S | P10.06 P10.13
+P10.15 | guardian | Federated zig-waf fleet client generated from api-v1.json | waf | new | M | P10.02 P9.12
+P10.16 | guardian | Phase gate: app tests, typecheck, lint and browser verification | app | gate | S | P10.05 P10.07 P10.09 P10.11 P10.12 P10.14 P10.15
+
+## P11 | P11 Native macOS app | Craft AppKit app with a tray popover and a native sidebar, running zav inside its agent.
+P11.01 | guardian | Desktop config and launcher modelled on SystemCleaner, with Full Disk Access entitlements | desktop | new | M | P10.03
+P11.02 | guardian | Compiled agent that loads zav through FFI and watches with FSEvents | desktop | new | M | P11.01 P7.16
+P11.03 | guardian | Tray popover: protection status, last scan, Quick Scan, signature age, threats | desktop | new | M | P11.02
+P11.04 | guardian | Main window with a native sidebar and every section | desktop | new | L | P11.02 P10.07 P10.08 P10.10
+P11.05 | craft | Downloads land in a .part file, pass a scan hook, and get com.apple.quarantine when revealed | security | new | M | P6.13
+P11.06 | craft | Fix the AppKit sidebar and tray gaps Guardian finds | desktop | fix | M | P11.03 P11.04
+P11.07 | stx | Fix the stx native-screen gaps Guardian finds | desktop | fix | M | P11.04
+P11.08 | guardian | Phase gate: signed build verified on screen, EICAR in a watched folder caught live | desktop | gate | S | P11.03 P11.05 P11.06 P11.07
+P11.09 | guardian | Endpoint Security blocking mode in the app | desktop | new | M | P11.08 P7.17 | needs-human
+
+## P12 | P12 Ecosystem rollout | zavd replaces clamd on the boxes, the mail server and the registry scan everything, and the apps follow.
+P12.01 | cloud | guardian service: zavd systemd unit with a small MemoryMax and a socket for tenants | deploy | new | M | P6.23
+P12.02 | cloud | Commitment report counts zavd; remove the clamav assumptions | deploy | fix | S | P12.01
+P12.03 | mail | clamav client: Unix socket support and a fail-closed mode | email | new | S | -
+P12.04 | mail | Scan DATA and BDAT messages before saveMessage | email | new | M | P12.03
+P12.05 | mail | Scan IMAP APPEND, ActiveSync SendMail, CalDAV PUT and webmail uploads | email | new | M | P12.04
+P12.06 | mail | Switch MIME parsing to zig-mime | email | port | M | P2.15
+P12.07 | mail | Cut the production mail server over to zavd once the full suite passes | email | rollout | S | P12.05 P12.06 P12.01
+P12.08 | pantry | Registry deploy moves from clamav-daemon to zavd | deploy | rollout | M | P6.23
+P12.09 | pantry | Client scans packages after integrity checks and before extraction | security | new | M | P6.12
+P12.10 | browser | Scan finished downloads and flag infected ones | security | new | S | P11.05
+P12.11 | attic | Scan attachments and WhatsApp media before they are marked copied | security | new | S | P6.13
+P12.12 | reviewos | Malware pass in the pre-receive gate and on LFS, attachments, release assets and artifacts | security | new | M | P6.13
+P12.13 | bughq | Scan symbol uploads | security | new | S | P8.13
+P12.14 | postline | Scan media uploads | security | new | S | P8.13
+P12.15 | guardian | Rollout gate: live services refuse EICAR on registry publish and on mail | deploy | gate | S | P12.02 P12.07 P12.08 P12.09 P12.10 P12.11 P12.12 P12.13 P12.14
+
+## P13 | P13 Program qualification | Every target measured, every gate green, and release candidates ready for the maintainer's approval.
+P13.01 | guardian | Program qualification: targets met, docs complete, release candidates ready for approval | docs | gate | S | P3.15 P5.18 P5.19 P6.23 P7.19 P8.13 P8.14 P8.15 P8.16 P8.18 P8.19 P8.20 P8.21 P8.22 P8.23 P8.24 P8.25 P9.32 P9.35 P10.16 P11.08 P12.15 | needs-human

@@ -1,0 +1,1103 @@
+[
+{
+ "key": "P0.01",
+ "goal": "A Guardian Stacks application exists and is published as the public stacksjs/guardian repository. It is the hub of the program: the plan, the issue graph tooling and the operator app all live here.",
+ "refs": ["~/Code/stacks/storage/framework/core/buddy/src/commands/create.ts"],
+ "scope": [
+  "Scaffold with `buddy new guardian --desktop` so config/desktop.ts, resources/native/Main.stx and app/Desktop/Agent.ts exist from day one",
+  "Create the public GitHub repository stacksjs/guardian and push main",
+  "Set the bundle id in config/desktop.ts away from the com.example placeholder",
+  "README states what Guardian is (file scanning, host protection, CVE automation, web firewall) and links the plan"
+ ],
+ "out_of_scope": [
+  "The plan and agent rules (P0.02)",
+  "Issue graph tooling (P0.03)",
+  "Any product code (P10 onwards)"
+ ],
+ "notes": [
+  "The scaffold resolves the framework from npm and links the defaults from node_modules, so the app works with published Stacks packages",
+  "Commits go straight to main as the maintainer, with conventional commit messages and no co-author trailers"
+ ],
+ "accept": [
+  "github.com/stacksjs/guardian is public and main contains the scaffold commit",
+  "`./buddy typecheck` and `./buddy lint` pass on a fresh clone",
+  "config/desktop.ts carries a real bundle id"
+ ]
+},
+{
+ "key": "P0.02",
+ "goal": "One written plan and one set of working rules that every session and contributor reads before touching any Guardian issue, so decisions are never re-derived.",
+ "scope": [
+  "docs/PLAN.md: context, the clamd memory problem, goals and targets, decisions already made, phases P0 to P13 with their gates",
+  "AGENTS.md section for the program: how to pick work (lowest open ready guardian issue), commit and release rules, the fix-at-the-source rule, the public-repository rule (no hostnames or private details)",
+  "A short decisions log: signature sources (ClamAV compiled locally, never re-hosted; Guardian rules; MalwareBazaar opt-in), macOS AppKit first, public repositories, rollout once tests pass, zig-waf as the HTTP layer"
+ ],
+ "out_of_scope": [
+  "The engine design study, which goes into zig-anti-virus as docs/DESIGN.md (P3.01)"
+ ],
+ "notes": [
+  "Keep it scannable: a reader should find the phase, the gate and the decision for any issue in under a minute",
+  "Prose rules from the Stacks AGENTS.md apply: no em-dashes or en-dashes"
+ ],
+ "accept": [
+  "docs/PLAN.md and AGENTS.md exist on main and are linked from the README and from the start-here issue",
+  "Every phase in OUTLINE.txt has a matching section in docs/PLAN.md"
+ ]
+},
+{
+ "key": "P0.03",
+ "goal": "Issue graph tooling that spans many repositories: one outline creates issues in the repository that owns each piece of work, links blockers across repositories, and wires existing issues in without duplicating them.",
+ "refs": [
+  "~/Code/Libraries/zig-routing/scripts/issues/create.ts",
+  "~/Code/Libraries/zig-routing/scripts/issues/sync-ready.ts",
+  "~/Code/Libraries/zig-routing/scripts/issues/lib.ts"
+ ],
+ "scope": [
+  "scripts/issues/OUTLINE.txt with a repository column; a trailing #N marks an existing issue",
+  "scripts/issues/outline.config.ts: hub repository, aliases, area and type vocabularies; the outline is validated against it",
+  "create.ts: --dry-run, --show KEY, --preflight (repository exists, issues enabled, write permission), resumable creation into created.json as owner/name#N",
+  "Labels created per repository only when missing (never overwrite an existing label such as `blocked`), milestones prefixed with `Guardian`",
+  "Hub start issue and phase epics, plus one tracking issue per participating repository",
+  "Existing issues get labels and one linking comment",
+  "sync-ready.ts reading issue states with batched GraphQL queries per repository"
+ ],
+ "out_of_scope": [
+  "The scheduled workflow and its token (P0.04)"
+ ],
+ "notes": [
+  "Generalised from zig-routing's single-repository tooling. Lesson kept from there: always read issue numbers from created.json, never guess them",
+  "Pacing and retries with backoff stay, because secondary rate limits hit long creation runs"
+ ],
+ "accept": [
+  "`bun scripts/issues/create.ts --dry-run` prints counts per phase and per repository",
+  "`bun scripts/issues/create.ts --preflight` passes for every repository",
+  "Rerunning creation after an interruption creates nothing twice",
+  "`bun scripts/issues/sync-ready.ts --dry-run` runs against the created graph"
+ ]
+},
+{
+ "key": "P0.04",
+ "goal": "Readiness labels stay true without anyone remembering to run a script: when an issue closes in any participating repository, its dependents flip from blocked to ready within minutes.",
+ "scope": [
+  ".github/workflows/issue-graph.yml in the hub: schedule every 15 minutes plus workflow_dispatch, runs scripts/issues/sync-ready.ts",
+  "Concurrency group so two syncs never race",
+  "The maintainer creates a fine-grained token with issues read and write on every participating repository and stores it as the ISSUE_GRAPH_TOKEN secret",
+  "The workflow falls back to github.token and says clearly that cross-repository relabelling needs the secret"
+ ],
+ "out_of_scope": [
+  "Changes to the sync logic itself (P0.03)"
+ ],
+ "notes": [
+  "needs-human: the token spans several organisations, so only the maintainer can create it",
+  "The workflow token of one repository cannot write issues in another organisation, which is why the hub runs on a schedule instead of on issue events"
+ ],
+ "accept": [
+  "A manual dispatch relabels a test issue in a non-hub repository",
+  "The scheduled run succeeds for 24 hours with no failures"
+ ]
+},
+{
+ "key": "P0.05",
+ "goal": "The two new libraries have public homes in zig-utils before any issue is filed against them: zig-anti-virus for the engine and zig-mime for streaming MIME parsing.",
+ "scope": [
+  "Create public repositories zig-utils/zig-anti-virus and zig-utils/zig-mime with issues enabled",
+  "Initial commit: README stating purpose and status (pre-alpha), MIT license, a placeholder that points at the scaffolding issues",
+  "Repository description and topics"
+ ],
+ "out_of_scope": [
+  "The actual scaffolds from zig-starter (P1.13, P1.14)"
+ ],
+ "notes": [
+  "Both repositories need to exist before issue creation, because the outline files issues into them",
+  "Local clones live at ~/Code/Libraries/zig-anti-virus and ~/Code/Libraries/zig-mime"
+ ],
+ "accept": [
+  "Both repositories are public, have issues enabled and have a main branch",
+  "`bun scripts/issues/create.ts --preflight` lists both as ok"
+ ]
+},
+{
+ "key": "P1.01",
+ "goal": "zig-starter builds on exactly one pinned Zig toolchain, the same one every other zig-utils library and zig-anti-virus use, so a library started from it compiles everywhere on day one.",
+ "refs": [
+  "~/Code/Libraries/zig-starter/build.zig.zon",
+  "~/Code/Libraries/zig-starter/deps.yaml",
+  "~/Code/Libraries/zig-starter/.github/workflows/ci.yml",
+  "~/Code/Libraries/zig-starter/README.md"
+ ],
+ "scope": [
+  "build.zig.zon `minimum_zig_version` set to 0.17.0-dev.1857 (it says 0.15.1 today)",
+  "deps.yaml installs the pinned Zig through pantry next to bun",
+  "CI uses the same version (it pins 0.17.0-dev.56 today)",
+  "README install section names the pin and how to get it",
+  "Fix whatever the newer std breaks in src/lib.zig, src/main.zig and build.zig"
+ ],
+ "out_of_scope": [
+  "Library and binding steps (P1.03, P1.05)",
+  "Dependency declarations (P1.09)"
+ ],
+ "notes": [
+  "0.17.0-dev.1857 or newer, because zig-tls and other siblings need at least .1476 and the global .1441 is too old",
+  "One pin across zon, deps.yaml, CI and README; a test or script should fail if they disagree"
+ ],
+ "accept": [
+  "`zig build` and `zig build test` pass with the pinned toolchain on macOS and Linux",
+  "All four places name the same version"
+ ]
+},
+{
+ "key": "P1.02",
+ "goal": "The template stops shipping a 1.2 MB compiled binary to everyone who copies it.",
+ "refs": ["~/Code/Libraries/zig-starter/.gitignore"],
+ "scope": [
+  "git rm the tracked `test` Mach-O file at the repository root",
+  ".gitignore: replace the directory-only `test/` pattern with rules that match the file, and ignore `.zig-cache/` and `zig-out/` in both spellings",
+  "A CI check that fails if a tracked file is an executable binary"
+ ],
+ "out_of_scope": ["Test step changes (P1.04)"],
+ "notes": [
+  "`test/` only matches directories, which is why the file slipped in"
+ ],
+ "accept": [
+  "`git ls-files` no longer lists `test`",
+  "Building and running tests leaves `git status` clean"
+ ]
+},
+{
+ "key": "P1.03",
+ "goal": "A library made from the template can be linked from C, Bun or any other language on day one: the template builds static and dynamic libraries and shows the versioned C ABI pattern.",
+ "refs": [
+  "~/Code/Libraries/zig-starter/build.zig",
+  "~/Code/Libraries/zig-waf/include",
+  "~/Code/Tools/dtsx/packages/zig-dtsx/src/lib.zig"
+ ],
+ "scope": [
+  "`zig build lib` installs libzig-starter.a and the platform shared library (dylib, so, dll)",
+  "src/capi.zig with `export fn starter_version_v1` and one sample function taking a buffer and length, returning a status code",
+  "include/zig_starter.h matching the exports, with a size-prefixed options struct to show forward compatibility",
+  "A C smoke test compiled with `zig cc` that links the static library and calls the sample"
+ ],
+ "out_of_scope": [
+  "The TypeScript binding (P1.05)",
+  "Prebuilt release artifacts (P1.06)"
+ ],
+ "notes": [
+  "ABI functions carry a `_v1` suffix like zig-dtsx does, so a later change adds `_v2` instead of breaking callers",
+  "No allocation crosses the boundary unless a matching free function is exported"
+ ],
+ "accept": [
+  "`zig build lib` produces both libraries on macOS and Linux",
+  "The C smoke test runs in `zig build test`",
+  "The header compiles with `-Wall -Werror`"
+ ]
+},
+{
+ "key": "P1.04",
+ "goal": "`zig build test` means every module is tested, including the executable entry point, and the library module honours the requested optimize mode.",
+ "refs": ["~/Code/Libraries/zig-starter/build.zig"],
+ "scope": [
+  "Test step runs tests from src/lib.zig, src/main.zig and every file they import",
+  "lib_mod in build.zig takes `.optimize = optimize` (today it only sets target)",
+  "Remove or wire the unused `*.full.zig` variants so there is one build path",
+  "`zig fmt --check` as part of the default CI job"
+ ],
+ "out_of_scope": ["Fuzz, bench and ReleaseSafe steps (P1.07)"],
+ "notes": [
+  "A test in main.zig that fails must fail `zig build test`; add one temporarily to prove it"
+ ],
+ "accept": [
+  "A deliberately failing test in main.zig makes `zig build test` exit non-zero",
+  "`zig build -Doptimize=ReleaseFast` builds the library module in ReleaseFast"
+ ]
+},
+{
+ "key": "P1.05",
+ "goal": "A template TypeScript package that loads the Zig library through bun:ffi, finding a local build first and a shipped prebuilt second, so every Zig library in the ecosystem can be used from Bun the same way.",
+ "refs": [
+  "~/Code/Tools/dtsx/packages/zig-dtsx/src/index.ts",
+  "~/Code/Libraries/zig-camera/ts/ffi.ts"
+ ],
+ "scope": [
+  "ts/index.ts: platform and architecture slug, lookup in zig-out/lib then prebuilt/<slug>/, `dlopen` with typed symbols",
+  "Typed wrappers that pass TypedArrays zero-copy with `ptr()` and copy results out before freeing",
+  "package.json with `files` including prebuilt, a build script, and bun tests",
+  "Clear error when no library matches the platform, naming what was looked for"
+ ],
+ "out_of_scope": [
+  "Publishing (P1.06)",
+  "Async completion queues, which are engine specific (P6.12)"
+ ],
+ "notes": [
+  "No napi anywhere in the ecosystem; bun:ffi plus prebuilt shared libraries is the convention",
+  "Keep the wrapper free of JSCallback in hot paths"
+ ],
+ "accept": [
+  "`bun test` in ts/ passes against a local `zig build lib` output",
+  "With zig-out removed and a prebuilt copied in, the same tests pass"
+ ]
+},
+{
+ "key": "P1.06",
+ "goal": "Tagging a release of a template-based library publishes prebuilt libraries for every supported platform to pantry and npm, so consumers never need Zig installed.",
+ "refs": [
+  "~/Code/Tools/dtsx/.github/workflows/release.yml",
+  "~/Code/Libraries/zig-starter/.github/workflows/release.yml"
+ ],
+ "scope": [
+  "Release workflow builds `zig build lib -Dtarget=...` for linux x64 and arm64 (musl, plus glibc 2.17), darwin x64 and arm64, windows x64, freebsd x64",
+  "Copies each result into prebuilt/<slug>/ and runs the binding tests on the native runners where available",
+  "`pantry publish` and `pantry publish --npm` for the package, then a GitHub release with checksums",
+  "The existing action-releaser step keeps the changelog"
+ ],
+ "out_of_scope": ["Windows CI on every push (P1.08)"],
+ "notes": [
+  "Copy the matrix from dtsx, which already does this for zig-dtsx",
+  "npm publishing uses trusted publishing (OIDC); an E404 on publish means auth, not a missing package"
+ ],
+ "accept": [
+  "A dry-run release job produces all six prebuilt libraries as artifacts",
+  "A test tag publishes a package whose tarball contains every prebuilt"
+ ]
+},
+{
+ "key": "P1.07",
+ "goal": "Every library from the template starts with fuzzing, benchmarks and a safety-checked test run, because the libraries built on it parse hostile input and are judged on speed.",
+ "refs": [
+  "~/Code/Libraries/zig-waf/tools/parser_fuzz.zig",
+  "~/Code/Libraries/zig-benchmarks/src/bench.zig"
+ ],
+ "scope": [
+  "`zig build fuzz` running a sample fuzz target with a configurable iteration count, plus support for Zig's built-in `--fuzz`",
+  "`zig build bench` using zig-benchmarks with a sample benchmark and a JSON result file",
+  "`zig build test -Doptimize=ReleaseSafe` job in CI",
+  "Documented commands in the README"
+ ],
+ "out_of_scope": ["External-process memory benchmarking (P1.12)"],
+ "notes": [
+  "zig-waf already has fuzz steps; follow its layout so the libraries look alike"
+ ],
+ "accept": [
+  "`zig build fuzz -Dfuzz-iterations=10000` runs clean",
+  "`zig build bench` writes a result file",
+  "CI runs the ReleaseSafe job"
+ ]
+},
+{
+ "key": "P1.08",
+ "goal": "Template libraries are tested on Windows and built for each CPU variant they dispatch to at runtime, so platform and instruction-set bugs show up in CI instead of in production.",
+ "refs": ["~/Code/Libraries/zig-starter/.github/workflows/ci.yml"],
+ "scope": [
+  "windows-latest added to the CI matrix",
+  "A CPU-variant matrix job building x86_64 baseline, x86-64-v2, x86-64-v3, v3 plus sha, and aarch64 with crypto, and running tests under each where the runner supports it",
+  "A sample showing runtime dispatch between variant builds (cpuid on x86, sysctl or hwcaps on aarch64)"
+ ],
+ "out_of_scope": ["Engine-specific dispatch of hash kernels (P3.08)"],
+ "notes": [
+  "std.crypto only uses SHA-NI or ARMv8 sha2 when the target enables them at comptime, so a baseline build silently gets software hashing. The variant pattern exists to fix that"
+ ],
+ "accept": [
+  "CI is green on Linux, macOS and Windows",
+  "The variant job builds every listed target"
+ ]
+},
+{
+ "key": "P1.09",
+ "goal": "Template dependencies are declared the way the rest of zig-utils declares them, as pantry registry tarballs with hashes, so a fresh clone builds without sibling checkouts.",
+ "refs": [
+  "~/Code/Libraries/zig-waf/build.zig.zon",
+  "~/Code/Libraries/zig-starter/package.jsonc",
+  "~/Code/Libraries/zig-starter/build.zig.full"
+ ],
+ "scope": [
+  "build.zig.zon example dependency using https://registry.pantry.dev/zig/packages/<name>/<version>/tarball with a hash",
+  "Drop the relative ../zig-cli style imports in build.zig.full",
+  "package.jsonc paths point at ~/Code/Libraries/* (today they point at ~/Code/* which does not exist) or are removed in favour of zon",
+  "README section on adding a dependency"
+ ],
+ "out_of_scope": ["Toolchain pin (P1.01)"],
+ "notes": [
+  "If a library is missing from the registry, publish it there instead of falling back to a path dependency"
+ ],
+ "accept": [
+  "A fresh clone with no sibling checkouts runs `zig build` successfully",
+  "No relative path dependencies remain"
+ ]
+},
+{
+ "key": "P1.10",
+ "goal": "A released zig-starter that zig-anti-virus and zig-mime are created from, with documentation on how to start a library from it.",
+ "scope": [
+  "docs/SETUP.md rewritten: create from template, rename the module, add the C ABI, publish",
+  "Remove stale exploration docs that describe the old layout",
+  "Cut a release with the template's release script and confirm the published package",
+  "Check that the template itself passes every new CI job"
+ ],
+ "out_of_scope": ["Scaffolding the two new libraries (P1.13, P1.14)"],
+ "notes": [
+  "Phase gate for the template: nothing is scaffolded from it until this closes"
+ ],
+ "accept": [
+  "A release tag exists and its CI and release workflows are green",
+  "Following docs/SETUP.md in a scratch directory produces a library that builds, tests and binds from Bun"
+ ]
+},
+{
+ "key": "P1.11",
+ "goal": "zig-benchmarks compiles on the pinned Zig 0.17 toolchain, so the engine and its experiments can use it.",
+ "refs": [
+  "~/Code/Libraries/zig-benchmarks/src/bench.zig",
+  "~/Code/Libraries/zig-benchmarks/src/ci.zig",
+  "~/Code/Libraries/zig-benchmarks/build.zig.zon"
+ ],
+ "scope": [
+  "Replace `std.fs.File.stdout()` and other removed file APIs with the std.Io equivalents",
+  "Replace std.time.Timer with the current monotonic clock API",
+  "Pin minimum_zig_version and CI to 0.17.0-dev.1857 or newer",
+  "Run every example and test"
+ ],
+ "out_of_scope": ["External-process sampling (P1.12)"],
+ "notes": [
+  "Keep the public API stable where possible; note any breaking change in the changelog"
+ ],
+ "accept": [
+  "`zig build test` and every example build on the pinned toolchain",
+  "The regression comparison in ci.zig still flags a 10 percent slowdown"
+ ]
+},
+{
+ "key": "P1.12",
+ "goal": "zig-benchmarks can benchmark a separate process and report its memory the way the engine's gates need: RSS, PSS and private dirty, sampled over time.",
+ "refs": ["~/Code/Libraries/zig-benchmarks/src/memory_profiler.zig"],
+ "scope": [
+  "Process runner that starts a command, drives it (stdin, socket or nothing) and samples memory at a configurable rate, 10 Hz by default",
+  "Linux: /proc/<pid>/smaps_rollup (Rss, Pss, Private_Dirty, Anonymous, SwapPss). macOS: task_info phys_footprint",
+  "Peak, median and time series in the JSON result",
+  "Gate helper: fail if a metric exceeds a threshold",
+  "Wall time, CPU time and page faults"
+ ],
+ "out_of_scope": ["Engine-specific corpora and drivers (P6.15)"],
+ "notes": [
+  "The existing memory profiler only counts allocator bytes, which says nothing about mmapped signature data or page cache",
+  "File-backed pages mapped by one process show as Private_Clean on Linux; report clean and dirty separately and gate on dirty"
+ ],
+ "accept": [
+  "A test that allocates and touches 64 MB in a child process reports about 64 MB private dirty",
+  "A test that mmaps and reads a 64 MB file reports it as clean, not dirty"
+ ]
+},
+{
+ "key": "P1.13",
+ "goal": "zig-anti-virus exists as a buildable repository created from the released template, with the module map from the design so later issues land in agreed places.",
+ "scope": [
+  "Create from zig-starter in ~/Code/Libraries/zig-anti-virus and push to zig-utils/zig-anti-virus",
+  "Directories with root files: src/db, src/compile, src/match, src/hash, src/simd, src/fmt, src/engine, src/rt, src/daemon, src/watch, src/host, src/cve, src/update, src/capi, src/cli, bench/",
+  "Executables `zav` and `zavd`, library artifacts, the C header placeholder include/zav.h",
+  "AGENTS.md with the toolchain pin, test commands and the performance rules (no allocation in hot loops, offsets not pointers in on-disk data)"
+ ],
+ "out_of_scope": [
+  "Design document (P3.01)",
+  "Any engine code"
+ ],
+ "notes": [
+  "Module names follow the design study so issue scopes match the tree"
+ ],
+ "accept": [
+  "`zig build`, `zig build test`, `zig build lib` pass in CI on Linux and macOS",
+  "`zav --version` and `zavd --version` run"
+ ]
+},
+{
+ "key": "P1.14",
+ "goal": "zig-mime exists as a buildable repository created from the released template, ready for the streaming parser.",
+ "scope": [
+  "Create from zig-starter in ~/Code/Libraries/zig-mime and push to zig-utils/zig-mime",
+  "Module layout: src/walker.zig, src/headers.zig, src/decode/base64.zig, src/decode/qp.zig, src/root.zig",
+  "Fuzz and bench steps from the template wired to placeholder targets",
+  "README describing the goal: a streaming, allocation-bounded MIME walker shared by the mail server, zig-anti-virus and possibly zig-waf"
+ ],
+ "out_of_scope": ["The parser itself (P2.11 to P2.15)"],
+ "accept": [
+  "`zig build test` passes in CI on Linux and macOS",
+  "The package can be added to another project by registry URL and hash"
+ ]
+},
+{
+ "key": "P2.01",
+ "goal": "zig-regex can compile patterns over raw bytes instead of UTF-8 text, which ClamAV PCRE subsignatures, YARA regex strings and zig-waf @rx on binary bodies all need.",
+ "refs": [
+  "~/Code/Libraries/zig-regex/src/parser.zig",
+  "~/Code/Libraries/zig-regex/src/utf8_class.zig",
+  "~/Code/Libraries/zig-regex/src/compiler.zig"
+ ],
+ "scope": [
+  "A `bytes` compile option",
+  "In bytes mode `\\xHH` is one byte (today parseHexEscape turns it into the code point's UTF-8 bytes)",
+  "`.` matches any byte, and with dotall also newline",
+  "Character classes are byte sets with no UTF-8 range decomposition; case-insensitive folds ASCII only",
+  "Unicode properties are rejected in bytes mode with a clear error",
+  "Tests for every construct in both modes"
+ ],
+ "out_of_scope": [
+  "Allocation-free matching (P2.02)",
+  "Serialisation (P2.05)"
+ ],
+ "notes": [
+  "Default behaviour stays UTF-8 so existing users see no change",
+  "PCRE byte semantics are the reference; the differential experiment comes later in zig-anti-virus (P4.19)"
+ ],
+ "accept": [
+  "`\\x80\\xff` matches exactly those two bytes in bytes mode",
+  "Every existing test still passes",
+  "New tests cover classes, dot, case folding and anchors in bytes mode"
+ ]
+},
+{
+ "key": "P2.02",
+ "goal": "A matcher that never allocates during a match: the caller passes scratch memory once and reuses it, so the scan hot path in zig-anti-virus and zig-waf stays allocation-free.",
+ "refs": [
+  "~/Code/Libraries/zig-regex/src/dfa.zig",
+  "~/Code/Libraries/zig-regex/src/vm.zig",
+  "~/Code/Libraries/zig-regex/src/backtrack.zig"
+ ],
+ "scope": [
+  "A `Scratch` type sized from the compiled program, created once per thread",
+  "`isMatch`, `find` and `findAll` variants taking the scratch and no allocator",
+  "The lazy DFA's mutable state moves into the scratch, so one compiled program is shared read-only across threads",
+  "Benchmarks before and after"
+ ],
+ "out_of_scope": ["State caps and step budgets (P2.03)"],
+ "notes": [
+  "The LazyDfa is mutable per matcher today; moving it to scratch is what makes a shared, read-only program possible",
+  "A test allocator that fails on any allocation must pass the matching tests"
+ ],
+ "accept": [
+  "Matching with a failing allocator passes the full test suite",
+  "Throughput does not regress on the existing benchmarks"
+ ]
+},
+{
+ "key": "P2.03",
+ "goal": "Callers can bound how much memory and time one match may use, so hostile input cannot blow up a scan: a configurable lazy-DFA state cap and a per-match step budget.",
+ "refs": ["~/Code/Libraries/zig-regex/src/dfa.zig", "~/Code/Libraries/zig-regex/src/backtrack.zig"],
+ "scope": [
+  "Configurable DFA state cap (fixed at 16384 today, up to about 16 MiB per regex per thread); zig-anti-virus wants about 256",
+  "When the cap is hit, fall back to the NFA without failing",
+  "Per-match step budget for the backtracker (10M default today) and the NFA, returning a distinct `BudgetExceeded` result",
+  "Tests with pathological patterns"
+ ],
+ "out_of_scope": ["Literal extraction (P2.04)"],
+ "notes": [
+  "BudgetExceeded must never be reported as no match; zig-anti-virus records it as a limit event"
+ ],
+ "accept": [
+  "With a 256-state cap, scratch memory per regex stays under a documented bound",
+  "A catastrophic pattern returns BudgetExceeded within the configured steps"
+ ]
+},
+{
+ "key": "P2.04",
+ "goal": "An API that tells the caller which literal strings every match must contain, so prefilters (zig-anti-virus atoms, zig-waf phrase sets) can skip regex evaluation entirely when no required literal is present.",
+ "refs": ["~/Code/Libraries/zig-regex/src/optimizer.zig", "~/Code/Libraries/zig-regex/src/pattern_analyzer.zig"],
+ "scope": [
+  "Public function returning required literal factors: prefix, suffix and inner factors, each with whether it is case-folded",
+  "Works in UTF-8 and bytes mode",
+  "Returns none when no factor of at least a minimum length exists",
+  "Tests with alternation, optional parts and repetition"
+ ],
+ "out_of_scope": ["The literal matchers themselves (P2.06 to P2.08)"],
+ "notes": [
+  "The optimizer already computes literal_prefix and required_literal internally; this exposes and extends them to sets of factors"
+ ],
+ "accept": [
+  "`foo(bar|baz)qux` reports `foo` and `qux` as required",
+  "`(a|b)*` reports nothing",
+  "Bytes-mode factors match raw bytes"
+ ]
+},
+{
+ "key": "P2.05",
+ "goal": "Compiled regex programs can be written into a file and loaded later without allocation, so zig-anti-virus stores PCRE and YARA regexes inside its mmapped signature database instead of compiling them at startup.",
+ "refs": ["~/Code/Libraries/zig-regex/src/compiler.zig", "~/Code/Libraries/zig-regex/src/regex.zig"],
+ "scope": [
+  "Serialise a compiled program to a relocatable byte blob: offsets, not pointers, little-endian, versioned",
+  "Load from a borrowed slice (for example an mmapped region) with no allocation and validation of bounds",
+  "Round-trip tests and a fuzz target for the loader"
+ ],
+ "out_of_scope": ["Byte mode itself (P2.01)"],
+ "notes": [
+  "Until this exists zig-anti-virus keeps a bounded runtime compile cache of about 4 MB"
+ ],
+ "accept": [
+  "Every test pattern matches identically after a round trip",
+  "Loading a corrupted blob fails cleanly under the fuzzer"
+ ]
+},
+{
+ "key": "P2.06",
+ "goal": "A fast multi-literal search for small pattern sets (up to a few dozen literals), the Teddy algorithm with SIMD nibble tables, as the first piece of a literals module shared by zig-anti-virus and zig-waf.",
+ "scope": [
+  "src/literals/teddy.zig: build from up to 64 literals, SIMD scan using @Vector on x86_64 and aarch64, verification of candidates",
+  "Reports literal id and offset",
+  "Case-insensitive option for ASCII",
+  "Benchmark against a naive multi-memmem"
+ ],
+ "out_of_scope": [
+  "Aho-Corasick (P2.07)",
+  "Bloom prefilter (P2.08)"
+ ],
+ "notes": [
+  "Zig has no runtime-index byte shuffle builtin, so the nibble lookup needs inline assembly (pshufb, tbl) behind a small wrapper",
+  "Used by zig-anti-virus for small target-type partitions"
+ ],
+ "accept": [
+  "Exhaustive tests against naive search on random inputs",
+  "At least 5 GB/s on 8 literals on a modern core, measured and recorded"
+ ]
+},
+{
+ "key": "P2.07",
+ "goal": "A binary-safe Aho-Corasick automaton with pattern ids, optional case folding and a relocatable serialised form, replacing the ASCII-only matcher in zig-waf and serving large literal sets everywhere.",
+ "refs": ["~/Code/Libraries/zig-waf/src/phrase.zig"],
+ "scope": [
+  "src/literals/aho_corasick.zig: build from any byte strings, report (pattern id, start, end) for every match, leftmost-longest and all-matches modes",
+  "Dense root table and compact transitions; option for a full DFA when the automaton is small",
+  "Case-folding option instead of always lowercasing",
+  "Serialise to a relocatable blob and run from a borrowed slice without allocation"
+ ],
+ "out_of_scope": ["zig-waf's migration onto it (P9.09)"],
+ "notes": [
+  "phrase.zig lowercases every byte, binary-searches edges per node, and returns only start and end, not which pattern matched. That makes it unusable for signatures",
+  "For very large sets the sampled Bloom prefilter (P2.08) is expected to beat this; the bake-off in zig-anti-virus decides (P4.16)"
+ ],
+ "accept": [
+  "Exhaustive differential tests against naive search including bytes 0x00 and 0xff",
+  "Serialised automaton matches identically after loading"
+ ]
+},
+{
+ "key": "P2.08",
+ "goal": "A sampled split-block Bloom prefilter for very large literal sets: positions are probed independently with no loop-carried state, so the CPU keeps many memory loads in flight. This is the core of zig-anti-virus pattern matching.",
+ "scope": [
+  "src/literals/sbbf.zig: 32-byte split blocks with 8 words, hash of a 4-byte gram with a seed, 8 bit positions from odd multipliers",
+  "Stride tiers: a literal with a long anchor inserts all grams at offsets 0 to s-1 so sampling every s-th position never misses it",
+  "Probe kernel that hashes 16 overlapping grams from one vector, then scalar block tests; candidates written to a ring branch-free",
+  "Builder sized to a target bits-per-key, serialised relocatably"
+ ],
+ "out_of_scope": [
+  "Atom selection and tiers A to D policy (zig-anti-virus P4.03)"
+ ],
+ "notes": [
+  "Do not use gathers: they are slow on Intel parts with the Downfall microcode mitigation",
+  "About 16 bits per key gives roughly 0.1 to 0.3 percent false positives",
+  "Per-byte cost estimate: about 0.6 cycles for stride 8, 1.2 for stride 4, 4.5 for stride 1 [E], measured in P2.09"
+ ],
+ "accept": [
+  "Never a false negative on randomized tests with strides 1, 4 and 8",
+  "False-positive rate within 20 percent of the theoretical rate for the configured size"
+ ]
+},
+{
+ "key": "P2.09",
+ "goal": "Measured numbers for byte-mode regex and every literals matcher, so later decisions rest on data instead of estimates.",
+ "refs": ["~/Code/Libraries/zig-regex/src/benchmark.zig"],
+ "scope": [
+  "Benchmarks for Teddy, Aho-Corasick and the Bloom prefilter across set sizes 8, 1k, 100k and 400k, on text and binary corpora",
+  "Byte-mode regex against PCRE2 on a set of ClamAV-style and CRS patterns, run as an external comparison script",
+  "Memory of each built structure",
+  "Results committed as docs/BENCHMARKS.md with hardware and commit"
+ ],
+ "out_of_scope": ["zig-anti-virus' own bake-off with real signatures (P4.16)"],
+ "notes": [
+  "Use zig-benchmarks with its external-process memory sampling for the memory columns"
+ ],
+ "accept": [
+  "docs/BENCHMARKS.md lists throughput and memory for every matcher and set size",
+  "`zig build bench` reproduces the numbers"
+ ]
+},
+{
+ "key": "P2.10",
+ "goal": "A zig-regex release carrying byte mode, allocation-free matching and the literals module, published so zig-anti-virus and zig-waf can depend on it by registry hash.",
+ "scope": [
+  "Changelog listing new APIs and any breaking changes",
+  "Release through the repository's release script; publish to the pantry registry",
+  "Confirm a consumer can add it by registry URL and hash and build"
+ ],
+ "out_of_scope": ["Consumers migrating (P4.11, P9.09)"],
+ "notes": ["Phase gate for the regex work"],
+ "accept": [
+  "The tag's CI and release workflows are green",
+  "The registry tarball builds in a scratch project on the pinned toolchain"
+ ]
+},
+{
+ "key": "P2.11",
+ "goal": "A streaming MIME walker that processes a message chunk by chunk with bounded memory, finds boundaries with SIMD, and walks nested multiparts, so mail scanning never buffers whole messages.",
+ "refs": [
+  "~/Code/Libraries/mail/packages/zig/src/message/mime.zig",
+  "~/Code/Libraries/mail/packages/zig/src/message/streaming_parser.zig"
+ ],
+ "scope": [
+  "Push API: feed bytes, receive events (part start with headers, body chunk, part end, message end)",
+  "Nested multipart stack with a configurable depth limit",
+  "SIMD search for `--boundary` candidates, then exact verification",
+  "Fixed memory per walker regardless of message size, apart from a capped header buffer"
+ ],
+ "out_of_scope": [
+  "Transfer decoding (P2.12)",
+  "Header decoding (P2.13)"
+ ],
+ "notes": [
+  "The mail parser's MultipartParser takes the whole body, is not recursive and allocates per part; the streaming parser buffers all headers and only handles the top level. This replaces both for scanning"
+ ],
+ "accept": [
+  "A 100 MB message with nested parts walks with peak memory under 1 MB beyond the header cap",
+  "Event sequence matches a reference parse for the test corpus"
+ ]
+},
+{
+ "key": "P2.12",
+ "goal": "Streaming base64 and quoted-printable decoders that turn part bodies into raw bytes chunk by chunk, feeding a scanner without materialising attachments.",
+ "scope": [
+  "src/decode/base64.zig: tolerant of line breaks and whitespace, carries partial quads across chunks, SIMD fast path",
+  "src/decode/qp.zig: soft line breaks, hex escapes, carries partial escapes across chunks",
+  "Sink interface so the walker routes decoded bytes directly to a consumer",
+  "Invalid input handling that keeps going and reports a flag"
+ ],
+ "out_of_scope": ["Header encoded words (P2.13)"],
+ "accept": [
+  "Decoding any split of a test vector into chunks gives identical output",
+  "Fuzzed inputs never crash or allocate"
+ ]
+},
+{
+ "key": "P2.13",
+ "goal": "Header parsing for the walker, including RFC 2047 encoded words and RFC 2231 parameters, with ContentType and boundary validation ported from the mail server so both behave the same.",
+ "refs": ["~/Code/Libraries/mail/packages/zig/src/message/mime.zig", "~/Code/Libraries/mail/packages/zig/src/message/headers.zig"],
+ "scope": [
+  "Unfold continuation lines without per-line allocation",
+  "Content-Type, Content-Disposition and Content-Transfer-Encoding with parameters, including RFC 2231 continuations and charsets",
+  "RFC 2047 decoding of filenames and subjects into UTF-8",
+  "Port ContentType.parse and the boundary validation rules from the mail server"
+ ],
+ "out_of_scope": ["Evasion edge cases (P2.14)"],
+ "accept": [
+  "Filename parameters split across RFC 2231 continuations decode correctly",
+  "The mail server's ContentType tests pass against the port"
+ ]
+},
+{
+ "key": "P2.14",
+ "goal": "The walker handles the malformed messages attackers use to slip attachments past scanners, the same way a mail client would display them.",
+ "scope": [
+  "Bare LF line endings everywhere (the mail parser only finds CRLF CRLF, a known evasion)",
+  "Missing final boundary, duplicate or conflicting boundary parameters, boundary inside a quoted string",
+  "Depth limit and part-count limit with a reported limit event instead of silent truncation",
+  "Test corpus of known evasion samples"
+ ],
+ "out_of_scope": ["Differential testing (P2.15)"],
+ "notes": [
+  "When interpretations differ, expose every plausible view of the part so a scanner can scan all of them"
+ ],
+ "accept": [
+  "Every sample in the evasion corpus yields the attachment",
+  "Limit events are reported, never swallowed"
+ ]
+},
+{
+ "key": "P2.15",
+ "goal": "zig-mime is fuzzed, checked against the mail server's parser and released, so the mail server and zig-anti-virus can switch to it.",
+ "scope": [
+  "Fuzz targets for walker, headers and decoders",
+  "Differential test against the mail server's parser on a message corpus, with every difference either fixed or documented as intentional",
+  "Benchmark of throughput and peak memory",
+  "Release and publish to the pantry registry"
+ ],
+ "out_of_scope": [
+  "The mail server switching over (P12.06)",
+  "zig-anti-virus mail scanning (P5.09)"
+ ],
+ "notes": ["Phase gate for zig-mime"],
+ "accept": [
+  "Fuzzers run for one hour without findings",
+  "The release builds from the registry in a scratch project"
+ ]
+},
+{
+ "key": "P2.16",
+ "goal": "zig-xml can tokenize from a reader instead of requiring the whole document in memory, so OOXML parts can be streamed out of zip archives during a scan.",
+ "refs": ["~/Code/Libraries/zig-xml"],
+ "scope": [
+  "Pull tokenizer that accepts a std.Io.Reader, with a bounded internal buffer",
+  "Tokens that straddle buffer refills handled correctly",
+  "Existing slice API kept as a thin wrapper",
+  "Tests feeding documents one byte at a time"
+ ],
+ "notes": [
+  "The tokenizer stays tolerant and keeps refusing DTDs and external entities"
+ ],
+ "accept": [
+  "One-byte-at-a-time feeding produces the same tokens as the slice API on the test corpus",
+  "Memory stays bounded on a 100 MB document"
+ ]
+},
+{
+ "key": "P2.17",
+ "goal": "zig-cli covers what the zav command line needs, so the engine's CLI is built on it without local workarounds.",
+ "refs": ["~/Code/Libraries/zig-cli/src/cli/CommandBuilder.zig", "~/Code/Libraries/zig-cli/src/cli/Parser.zig", "~/Code/Libraries/zig-cli/src/cli/Option.zig"],
+ "scope": [
+  "Nested subcommands at least two levels deep (`zav db build`)",
+  "Repeatable options collected into slices (`--exclude a --exclude b`)",
+  "Commands return an exit code instead of always exiting 0",
+  "A built-in `--json` convention for machine-readable output",
+  "Tests for each"
+ ],
+ "notes": [
+  "Fix in zig-cli itself; anything found later while building zav goes back here as well"
+ ],
+ "accept": [
+  "Tests for nested subcommands, repeatable options and exit codes pass",
+  "A release is published that zig-anti-virus can depend on"
+ ]
+},
+{
+ "key": "P2.18",
+ "goal": "zig-config can layer a file, environment variables and defaults the way zavd needs, without the daemon writing its own merging code.",
+ "refs": ["~/Code/Libraries/zig-config/src/merge.zig", "~/Code/Libraries/zig-config/src/config_loader.zig"],
+ "scope": [
+  "Environment overlay with a prefix (ZAVD_*) mapped onto nested fields",
+  "Deterministic precedence: defaults, then file, then environment, then explicit overrides",
+  "Clear errors naming the key and source when a value has the wrong type",
+  "Tests for each precedence step"
+ ],
+ "accept": [
+  "A nested field set in the file and overridden by an environment variable resolves to the environment value",
+  "Wrong types report the key and source"
+ ]
+},
+{
+ "key": "P2.19",
+ "goal": "The Home compression package stops presenting custom formats under standard names: its zstd, brotli and lz4 implementations cannot read or write the real formats today.",
+ "refs": [
+  "~/Code/Home/lang/packages/compression/src/zstd.zig",
+  "~/Code/Home/lang/packages/compression/src/brotli.zig",
+  "~/Code/Home/lang/packages/compression/src/lz4.zig",
+  "~/Code/Home/lang/packages/compression/src/gzip.zig"
+ ],
+ "scope": [
+  "zstd: replace the custom LZ77 with escape bytes by real Zstandard frames, or wrap std.compress.zstd for decoding",
+  "brotli: include the RFC 7932 static dictionary so real streams decode",
+  "lz4: implement the LZ4 frame format instead of a custom size prefix",
+  "Interoperability tests against files produced by the reference tools",
+  "If a format cannot be completed now, rename it so nobody mistakes it for the standard"
+ ],
+ "notes": [
+  "Found while evaluating the package for zig-anti-virus. The engine uses std.compress, so this does not block it"
+ ],
+ "accept": [
+  "Files written by the reference zstd, brotli and lz4 tools decode correctly",
+  "Files written by the package decode with the reference tools"
+ ]
+},
+{
+ "key": "P3.01",
+ "goal": "The engine's performance and memory design is written down in the repository before code, so every engine issue implements an agreed design and every estimate has an experiment that will confirm it.",
+ "scope": [
+  "docs/DESIGN.md covering: compiled .zavdb layout, hash index, atom prefilters and tiers, verify VM, logical signatures, hot loop, containers and limits, runtime and I/O, scan cache, reload, memory accounting, interfaces, targets, benchmark method, risks, experiments E0 to E14",
+  "Each figure marked as read in source, known, or estimated [E]",
+  "Performance rules for contributors: no allocation in hot loops, offsets not pointers on disk, raw mmap for the database",
+  "Link from README and AGENTS.md"
+ ],
+ "out_of_scope": ["Implementation of any part"],
+ "notes": [
+  "Targets: private dirty at most 24 MB idle and 64 MB under load; reload adds at most 2 MB; startup under 50 ms warm; at least 3x clamd on a mixed corpus",
+  "The extension is .zavdb because ClamAV already uses .gdb"
+ ],
+ "accept": [
+  "docs/DESIGN.md is on main and every experiment it names has an issue"
+ ]
+},
+{
+ "key": "P3.02",
+ "goal": "Real numbers about the ClamAV databases replace every estimate in the design: how many signatures of each kind, how long their fixed runs are, how many hashes have no size, and how densely sizes are covered.",
+ "scope": [
+  "A `zav census` subcommand or script that reads main.cvd and daily.cvd (fetched by the host, never committed)",
+  "Counts by file extension, target type, offset kind and functionality level",
+  "Longest fixed run per subsignature, as a histogram over tiers A (11+ bytes), B (7-10), C (4-6), D (3 or fewer)",
+  "Size-less hash signature count per algorithm; distinct sizes per table; coverage of sizes below 2^24",
+  "Signature name tokenisation ratio; PCRE subsignature count",
+  "Results committed as docs/CENSUS.md with the database versions"
+ ],
+ "out_of_scope": ["Building any runtime structure"],
+ "notes": [
+  "Size-less hashes force hashing every file and are the main threat to hash skipping; the count decides mitigations",
+  "Tier D counts size the candidate-storm risk for E3"
+ ],
+ "accept": [
+  "docs/CENSUS.md lists every count above with database versions",
+  "Rerunning the census on the same databases gives identical numbers"
+ ]
+},
+{
+ "key": "P3.03",
+ "goal": "zav reads ClamAV database files directly and verifies they are genuine, so a host can compile its own database from the files it downloads.",
+ "refs": [
+  "~/.local/share/zig-0.17-master/lib/std/tar.zig",
+  "~/.local/share/zig-0.17-master/lib/std/compress/flate.zig"
+ ],
+ "scope": [
+  "src/compile/cvd.zig: parse the 512-byte header (build time, version, signature count, functionality level, MD5, digital signature, builder)",
+  "Stream the tar.gz body with std.compress.flate and std.tar; detect plain-tar CLD files by magic",
+  "Verify the MD5 and the digital signature (and the external .sign file on newer releases); refuse unverified input unless an explicit flag is passed for local testing",
+  "Yield each contained file to the per-extension parsers"
+ ],
+ "out_of_scope": [
+  "Parsing the signature files (P3.04 onwards)",
+  "Downloading (P6.14)"
+ ],
+ "notes": [
+  "Databases are fetched by each host and compiled locally; they are never committed or re-hosted",
+  "The header field list is pieced together from docs and libclamav source; test against real files"
+ ],
+ "accept": [
+  "Current main.cvd and daily.cvd parse and verify",
+  "A file with one flipped byte fails verification",
+  "Fuzz target for the header and archive reader"
+ ]
+},
+{
+ "key": "P3.04",
+ "goal": "Hash signatures from every ClamAV hash format load into one rule IR, the input to the hash index.",
+ "scope": [
+  "src/compile/ir.zig: rule representation with source, name tokens, functionality level range and flags",
+  "Parsers: .hdb (MD5:size:name), .hsb (hash:size:name with MD5, SHA1 or SHA256 by length, `*` size with functionality level 73+), .mdb and .msb (PE section size:hash:name), .imp (import hash)",
+  "PUA variants with the u prefix",
+  "Every rejected line recorded with a reason for the coverage report"
+ ],
+ "out_of_scope": [
+  "Allowlists and ignore lists (P3.05)",
+  "Pattern formats (P4.01 onwards)"
+ ],
+ "accept": [
+  "Every hash line in current main and daily parses or is recorded with a reason",
+  "Unit tests for each format including malformed lines"
+ ]
+},
+{
+ "key": "P3.05",
+ "goal": "Allowlists, ignore lists and functionality levels are applied at compile time, and the compiler writes a coverage report that counts every signature it could not include and why.",
+ "scope": [
+  ".ign2 drops signatures by name at compile time, so ignoring costs nothing at scan time",
+  ".fp and .sfp stored as full-digest allowlist tables consulted after a detection",
+  "Functionality-level filtering with the engine's declared level",
+  "Coverage report section in the compiled database and as text: counts skipped by reason (unsupported format, target, feature, bytecode)"
+ ],
+ "out_of_scope": ["Hash index layout (P3.07)"],
+ "notes": [
+  "Allowlist digests are never truncated: a 64-bit prefix would let someone forge an allowlisted file with about 2^64 work",
+  "Bytecode (.cbc) is out of scope; its signatures appear in the report as skipped"
+ ],
+ "accept": [
+  "`zav coverage` prints the report for a compiled database",
+  "A signature listed in .ign2 does not appear in the compiled output"
+ ]
+},
+{
+ "key": "P3.06",
+ "goal": "The compiled database format: one signed, versioned, offset-only blob that the daemon maps read-only, so signatures cost no private memory and loading takes milliseconds.",
+ "refs": [
+  "~/.local/share/zig-0.17-master/lib/std/crypto/blake3.zig",
+  "~/.local/share/zig-0.17-master/lib/std/crypto/25519/ed25519.zig",
+  "~/.local/share/zig-0.17-master/lib/std/Io/Threaded.zig"
+ ],
+ "scope": [
+  "src/db/format.zig: 4 KiB header (magic, versions, feature flags, database version, source versions, BLAKE3 root, key id, ed25519 signature), section table with xxh3 per section",
+  "extern structs with comptime size and alignment asserts; little-endian; offsets relative to sections",
+  "src/db/writer.zig: write to a temp file, fsync, rename",
+  "src/db/reader.zig: raw posix.mmap(PROT_READ, MAP_PRIVATE), header and section-table checks, hard failure if mmap fails",
+  "Full BLAKE3 verification once at install, recorded in a sidecar keyed by device, inode, size and mtime",
+  "Hot region first and 2 MiB aligned"
+ ],
+ "out_of_scope": ["Section contents (P3.07, P4.04 and others)"],
+ "notes": [
+  "Never use std.Io.File.MemoryMap for the database: it silently falls back to allocate plus read, which would turn about 200 MB of signatures into private memory",
+  "Big-endian hosts are refused"
+ ],
+ "accept": [
+  "Open and validate a 200 MB test blob in under 10 ms with a warm page cache",
+  "Any flipped byte in the header or a section is detected by the right check",
+  "Private dirty memory after opening is under 1 MB"
+ ]
+},
+{
+ "key": "P3.07",
+ "goal": "A hash index that decides from the file size alone whether any hashing is needed, keeps only 8 bytes per signature hot, and confirms every hit against the full digest.",
+ "scope": [
+  "Need map: 4 bits per size (MD5, SHA1, SHA256) for sizes below 2^24, sorted overflow list above, a global size-less mask",
+  "Per table (algorithm and kind): sorted distinct sizes, a radix index for two-probe size lookup, 8-byte digest prefixes sorted within each size bucket",
+  "Cold section with full digests and signature ids, read only on a prefix hit",
+  "Size-less tables searched by interpolation over prefixes",
+  "Signature names stored as tokens, about 16 bytes per record, rebuilt only when a result is reported",
+  "External merge sort in the compiler so building fits in about 128 MB"
+ ],
+ "out_of_scope": [
+  "The hashing itself (P3.08)",
+  "Optional binary-fuse filter, decided by E1 (P3.09)"
+ ],
+ "notes": [
+  "About 32 MB of clean mapped memory for 4M entries [E]",
+  "A prefix collision can never cause a detection: the full digest is always compared"
+ ],
+ "accept": [
+  "Every hash signature in main and daily is found by lookup with its correct name",
+  "Random non-signature digests produce zero false matches over 100M lookups",
+  "Warm lookup under 300 ns"
+ ]
+},
+{
+ "key": "P3.08",
+ "goal": "Hashing runs in one pass that computes only the algorithms a file needs, using hardware SHA instructions whenever the CPU has them, even from a single distributed binary.",
+ "refs": [
+  "~/.local/share/zig-0.17-master/lib/std/crypto/sha2.zig",
+  "~/.local/share/zig-0.17-master/lib/std/crypto/Sha1.zig",
+  "~/.local/share/zig-0.17-master/lib/std/crypto/md5.zig"
+ ],
+ "scope": [
+  "src/hash/multihash.zig: update any subset of MD5, SHA1 and SHA256 over the same cache-resident block",
+  "CPU-variant objects (x86-64-v2, v3, v3 plus sha, aarch64 plus crypto) selected at runtime through cpuid or sysctl",
+  "Hardware SHA-1 kernels for x86 SHA-NI and ARMv8, which std lacks",
+  "Speculative hashing for streams of unknown size, dropped once the size passes the largest signature size for that table"
+ ],
+ "out_of_scope": ["Measurements (P3.10)"],
+ "notes": [
+  "std.crypto uses SHA-NI or ARMv8 sha256h only when the target enables them at comptime, so a baseline build silently falls back to software",
+  "MD5 is inherently serial at about 600 to 700 MB/s per core"
+ ],
+ "accept": [
+  "Digests match std and reference vectors for every variant",
+  "Runtime dispatch picks the hardware path on a CPU that has it, verified in a test"
+ ]
+},
+{
+ "key": "P3.09",
+ "goal": "E1: measure what the hash index costs and how much hashing it avoids, and decide whether a binary-fuse filter is worth adding.",
+ "scope": [
+  "Lookup cost with 4M plus 1M entries, warm and cold page cache",
+  "Share of bytes and files that skip each algorithm on a benign filesystem corpus and a large-file corpus",
+  "Optional binary-fuse filter (about 9 bits per key) measured against plain interpolation search",
+  "Results added to docs/DESIGN.md"
+ ],
+ "notes": [
+  "Pass line: warm lookup at most 300 ns and at least 70 percent of MD5 bytes skipped on the benign corpus [E]. If missed: add the filter or rework the size map"
+ ],
+ "accept": [
+  "Numbers recorded with hardware and corpus identifiers",
+  "A decision on the filter written in the issue and in docs/DESIGN.md"
+ ]
+},
+{
+ "key": "P3.10",
+ "goal": "E8: measure the hashers on baseline and native builds, so the engine knows what size gating saves and whether the variant dispatch is worth it.",
+ "scope": [
+  "Throughput of MD5, SHA1 and SHA256 on baseline x86_64, the sha variant, and aarch64 with crypto",
+  "Overhead of runtime dispatch",
+  "Results added to docs/DESIGN.md"
+ ],
+ "notes": [
+  "Pass line: SHA256 at least 1.5 GB/s and SHA1 at least 2 GB/s with hardware. If missed: keep software paths and lean on size gating"
+ ],
+ "accept": ["Numbers recorded for each variant and CPU tested"]
+},
+{
+ "key": "P3.11",
+ "goal": "Hosts that have a MalwareBazaar key can add its SHA-256 hash feed to their compiled database. It stays off by default because of the feed's terms.",
+ "scope": [
+  "Import the MalwareBazaar CSV export (sha256 and file size) into the SHA-256 whole-file table with its own source id",
+  "Size-keyed like the ClamAV tables, so it benefits from the need map",
+  "Configuration takes the auth key from the environment; nothing is fetched without it",
+  "Documentation states the not-for-profit terms and that the data must not be redistributed"
+ ],
+ "out_of_scope": ["Downloading on a schedule (P6.14)"],
+ "notes": [
+  "Every MalwareBazaar export now needs an auth key; downloads without one fail",
+  "Terms limit free use to not-for-profit purposes and forbid derivative works and training models"
+ ],
+ "accept": [
+  "A sample export imports and its hashes are detected",
+  "With no key configured, no network request is made"
+ ]
+},
+{
+ "key": "P3.12",
+ "goal": "The scan core's shared building blocks: a Source type every parser reads from, per-thread scratch arenas, and the limits that keep hostile files from exhausting time or memory.",
+ "scope": [
+  "src/engine/source.zig: file descriptor range, memory slice, decompressor over a parent source, spill file; sequential and positional reads",
+  "src/engine/scratch.zig: per-worker arena reserved as virtual memory, faulted in lazily, trimmed with madvise after idle",
+  "src/engine/limits.zig: max scan size, file size, recursion (17), files, embedded executables, normaliser sizes, per-member ratio and output caps, total output budget",
+  "src/engine/budget.zig: global big-window budget (64 MiB default) for decoder windows over 1 MiB",
+  "Limit events reported as results, never silent passes"
+ ],
+ "out_of_scope": ["Container parsers (P5)"],
+ "notes": [
+  "No allocation in the hot loop: everything a scan needs comes from scratch",
+  "Defaults match clamd so verdicts are comparable"
+ ],
+ "accept": [
+  "A test scan of a file performs zero heap allocations after scratch creation",
+  "Exceeding each limit yields the matching limit event"
+ ]
+},
+{
+ "key": "P3.13",
+ "goal": "The zav command line exists with its first commands, so every later feature has a place to be exercised by hand and in tests.",
+ "refs": ["~/Code/Libraries/zig-cli/src/root.zig"],
+ "scope": [
+  "src/cli/main.zig on zig-cli",
+  "`zav compile <sources...> -o db.zavdb`, `zav info <db>`, `zav coverage <db>`, `zav scan <paths...> --db <db>`",
+  "`--json` output on every command; exit code 0 clean, 1 infected, 2 error",
+  "Help text and a man-page style docs/CLI.md"
+ ],
+ "out_of_scope": [
+  "host, audit, daemon, update and bench commands (later phases)"
+ ],
+ "accept": [
+  "Each command runs and has a test",
+  "Exit codes match the documented values"
+ ]
+},
+{
+ "key": "P3.14",
+ "goal": "The first end-to-end scan: compile a database, open it, scan a file, report a detection. EICAR is built in so every install can prove it works.",
+ "scope": [
+  "Built-in EICAR test signature, always present, reported as `Eicar-Test-Signature`",
+  "Scan path: open, stat, need-map check, fused hash, index lookup, allowlist check, result",
+  "EICAR test files (plain and the two zipped variants) generated in tests, never committed as raw files",
+  "Integration test compiling hash signatures from a fixture and scanning fixtures"
+ ],
+ "out_of_scope": ["Zipped EICAR detection needs the zip parser (P5.03); the zipped variants are marked pending until then"],
+ "notes": [
+  "EICAR must start the file, may be followed only by whitespace, and the file must be 128 bytes or less"
+ ],
+ "accept": [
+  "`zav scan eicar.com` exits 1 and names Eicar-Test-Signature",
+  "A clean file exits 0",
+  "Integration test green in CI"
+ ]
+},
+{
+ "key": "P3.15",
+ "goal": "Phase gate: every ClamAV hash signature compiles into a database the engine maps read-only, and raw files scan against it with the expected verdicts and memory.",
+ "scope": [
+  "Compile current main and daily hash signatures with the coverage report",
+  "Scan a benign corpus and a set of known-hash samples (by hash manifest, run isolated)",
+  "Measure private dirty memory of `zav scan` with the full hash database loaded",
+  "Update docs/DESIGN.md with census, E1 and E8 results"
+ ],
+ "notes": ["Gate for P3; the census (P3.02), E1 (P3.09) and E8 (P3.10) must be closed first"],
+ "accept": [
+  "All hash signatures compile, the coverage report shows only expected skips",
+  "Every known-hash sample is detected with the right name and no benign file is",
+  "Private dirty under 24 MB with the hash database loaded"
+ ]
+}
+]

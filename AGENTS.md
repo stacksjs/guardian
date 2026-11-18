@@ -1,5 +1,35 @@
 # AGENTS.md
 
+## Guardian
+
+Guardian is the operator surface for three engines. Each engine stays standalone:
+- [`zig-utils/zig-anti-virus`](https://github.com/zig-utils/zig-anti-virus): `zav`, the low-memory scan engine with its clamd-compatible daemon, host checks and CVE automation.
+- [`zig-utils/zig-waf`](https://github.com/zig-utils/zig-waf): the web application firewall.
+- `@stacksjs/malware`: the framework integration.
+
+This repository is a Stacks app with a web dashboard, the `guardian` CLI, and a native macOS app (Craft AppKit and a tray popover). It is also the **hub of the program's issue graph**.
+
+- **Plan:** [docs/PLAN.md](docs/PLAN.md). Engine design: [zig-anti-virus docs/DESIGN.md](https://github.com/zig-utils/zig-anti-virus/blob/main/docs/DESIGN.md).
+- **Picking work:**
+  - Take the lowest open `ready` + `guardian` issue in phase order (see the pinned start issue).
+  - Work it in the repository that owns the code, and fix problems at their source.
+  - Commit with `Closes owner/repo#N`, comment the decisions on the issue, then run `bun scripts/issues/sync-ready.ts`.
+- **Issue numbers:** always look them up in `scripts/issues/created.json` (`key -> owner/repo#N`). Never guess one.
+- **Issues are public.** Never put hostnames, IPs, credentials or private infrastructure details in an issue, commit or doc.
+- **Toolchain:** Zig 0.17.0-dev.1857 or newer for every Zig repository in the program.
+- **Releases:** no public release or 1.0 of the desktop app without the maintainer approving that specific release.
+
+### Issue graph tooling (`scripts/issues/`)
+
+- `OUTLINE.txt`: keys, repositories, titles, labels and dependencies.
+  - Format: `KEY | repo | title | area | type | size | blockers | flags`.
+  - `repo` is an alias from `outline.config.ts`. A trailing `#N` links an existing issue instead of creating one.
+- `bodies-*.json`: goal, references, scope, out of scope, notes and acceptance for each new issue.
+- `bun scripts/issues/create.ts --dry-run [--show KEY] [--repo-summary]`, then `--preflight`, then a real run. The real run is resumable and never duplicates.
+- `bun scripts/issues/sync-ready.ts [--dry-run]` flips `ready` and `blocked` across every repository. The `issue-graph` workflow also runs it every 15 minutes.
+
+---
+
 Canonical guidance for AI coding agents (Claude Code, OpenAI Codex CLI, Cursor, and others) working
 in this Stacks application. This is the one file every agent reads, and the only one committed -
 `buddy setup:ai` generates the rest (`CLAUDE.md`, `.claude/skills/`, `.cursor/rules/`, ...) from

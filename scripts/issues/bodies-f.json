@@ -1,0 +1,93 @@
+[
+ {
+  "key": "P3.16",
+  "goal": "Pinned, reproducible benign corpora that both the atom frequency model (P4.03) and the benchmark harness (P6.15) read, so atom selection and every throughput claim are measured on the same data.",
+  "scope": [
+   "bench/corpus/*.json manifests listing SHA-256, size and source for each file: B1 benign filesystem slice, B2 large benign files, S1 mail streams",
+   "bench/fetch.ts or a zav subcommand that downloads or assembles each corpus from public sources (OS package mirrors, language package caches, public document and HTML sets) and verifies every hash",
+   "A deterministic sampling rule so a smaller CI subset is a stable prefix of the full corpus",
+   "Documentation of sources and licences for every corpus in bench/corpus/README.md"
+  ],
+  "out_of_scope": [
+   "The malware corpus M1 and adversarial corpus A1 (P5.17, P6.21), which are never fetched by default",
+   "The 4-gram model itself (P4.03) and the harness (P6.15)"
+  ],
+  "notes": [
+   "Manifests only: samples are never committed to the repository",
+   "Prefer sources with stable URLs and permissive licences so CI can rebuild the corpus"
+  ],
+  "accept": [
+   "Fetching B1 and B2 on a clean machine reproduces every listed hash",
+   "The CI subset fetches in under 5 minutes",
+   "P4.03 and P6.15 both read the same manifests"
+  ]
+ },
+ {
+  "key": "P8.22",
+  "goal": "ts-heic rejects malformed and polyglot inputs before decoding and lets callers run a malware scan first, matching what ts-images gains in P8.19.",
+  "refs": ["src/decoder.ts"],
+  "scope": [
+   "Validate the ISOBMFF box structure (sizes, nesting, item locations within the file) before decodeHeic starts work",
+   "Detect and report trailing data after the last box, and data hidden between boxes",
+   "An optional `scan` hook in the decode options that receives the raw bytes and can refuse the input",
+   "Tests with crafted HEIC plus ZIP and HEIC plus HTML polyglots"
+  ],
+  "out_of_scope": ["The scanner itself (zig-anti-virus)", "ts-images format detection (P8.19)"],
+  "notes": ["Use the same option name and result shape P8.19 defines for ts-images so callers wire one hook everywhere"],
+  "accept": ["Polyglot fixtures are reported before decode", "Existing decode tests still pass", "Released with `bun run release:patch`"]
+ },
+ {
+  "key": "P8.23",
+  "goal": "ts-avif rejects malformed and polyglot inputs before decoding and lets callers run a malware scan first, matching ts-images (P8.19).",
+  "refs": ["src/decoder.ts"],
+  "scope": [
+   "Validate the ISOBMFF box structure and item extents before decode",
+   "Detect trailing and interleaved data outside declared boxes",
+   "An optional `scan` hook in the decode options with the P8.19 result shape",
+   "Tests with crafted AVIF polyglots"
+  ],
+  "out_of_scope": ["AV1 decoding changes", "The scanner itself"],
+  "accept": ["Polyglot fixtures are reported before decode", "Existing tests pass", "Released with `bun run release:patch`"]
+ },
+ {
+  "key": "P8.24",
+  "goal": "ts-videos checks container structure before demuxing untrusted sources and offers the same optional scan hook, so media pipelines get one consistent guard.",
+  "refs": ["packages/ts-videos/src/source.ts"],
+  "scope": [
+   "Container sanity checks for MP4/MOV (box sizes and extents) and WebM/Matroska (element sizes) before demuxing",
+   "Trailing-data detection for file and buffer sources",
+   "An optional `scan` hook on createSource for buffer and file sources; URL sources scan after download and before demux",
+   "Tests with truncated, oversized-box and polyglot fixtures"
+  ],
+  "out_of_scope": ["Codec changes", "Streaming sources that never complete (documented as unscanned)"],
+  "accept": ["Fixtures are rejected or reported as designed", "Existing tests pass", "Released with `bun run release:patch`"]
+ },
+ {
+  "key": "P8.25",
+  "goal": "The AI package's image inputs can no longer be used to make the server fetch arbitrary URLs or read arbitrary files. Found while mapping scan hooks (P8.11); it is a separate security fix.",
+  "refs": ["storage/framework/core/ai/src/image.ts"],
+  "scope": [
+   "URL inputs: allow only http and https, resolve the host and refuse loopback, link-local, private and metadata ranges (re-checked after every redirect), cap redirects and response size, and require an image content type",
+   "File inputs: resolve the path and require it to sit inside a configured allowed root (default: the app's storage directory)",
+   "Config for an allowlist of hosts and roots; secure defaults",
+   "Tests for each refusal and for normal remote and local images"
+  ],
+  "out_of_scope": ["Malware scanning of fetched images (P8.11)"],
+  "notes": ["Describe the fix in the changelog without an exploit walkthrough"],
+  "accept": ["Requests to private and loopback addresses are refused, including via redirect", "Paths outside the allowed root are refused", "Framework tests pass and the fix ships in the next release"]
+ },
+ {
+  "key": "P9.36",
+  "goal": "Large uploads never stall zig-waf workers: @inspectFile answers from a verdict cache or a bounded budget, and finishes long scans asynchronously instead of blocking the request path.",
+  "refs": ["src/plugin.zig"],
+  "scope": [
+   "A content-hash keyed verdict cache shared by the Guardian operator (size-bounded, clean verdicts only, invalidated on database version change)",
+   "A per-request scan budget; when it runs out the operator answers `unavailable` and policy decides (detection mode logs, blocking mode can refuse)",
+   "Background completion of over-budget scans, with the verdict recorded for the next request carrying the same content and reported to Guardian",
+   "Metrics: cache hits, budget exhaustions, background scan latency"
+  ],
+  "out_of_scope": ["The operator registration and in-process link (P9.07, P9.08)", "rpx body spooling (P9.11)"],
+  "notes": ["plugin.zig requires operators not to block; unavailable must never be treated as clean"],
+  "accept": ["A 1 GB upload completes under the configured budget with an `unavailable` verdict and a later cached verdict", "No worker blocks longer than the budget in a soak test", "zig-waf CI and evidence stay green"]
+ }
+]

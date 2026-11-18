@@ -1,0 +1,714 @@
+[
+  {
+    "key": "P10.01",
+    "goal": "Give the Guardian app a data model that can hold everything the three engines report: file scans and detections, quarantined files, enrolled hosts with their host-check findings, CVE exposure, signature feed state, policies, and zig-waf events. Migrations are generated from the models, never written by hand.",
+    "refs": ["app/Models/", "database/migrations/", "storage/framework/defaults/app/Models/ (the built-in model conventions)"],
+    "scope": [
+      "Models with defineModel(): Scan (host, target, started/finished, files, bytes, verdict counts, engine and database versions), Detection (scan, path or container path, signature name, source, severity, sha256, action taken), QuarantineItem (detection, stored location, original path, restore and delete state), Host (name, platform, role, enrolment state, agent and database versions, last seen), Finding (host, category, severity, title, remediation, details JSON, first and last seen, suppressed), CveExposure (host, package, ecosystem, installed version, CVE id, CVSS, KEV flag, due date, fixed version), SignatureFeed (name, source, version, last update, coverage summary), Policy (scan surfaces, fail-closed, limits, schedules, suppressions), WafEvent (host, site, rule id, anomaly score, action, client IP, method, path, messages)",
+      "Relationships: Host hasMany Scan, Finding, CveExposure, WafEvent; Scan hasMany Detection; Detection hasOne QuarantineItem",
+      "useTimestamps on all, useUuid on records exposed through the API, indexes for host plus time queries",
+      "Factories for every model so dashboards and tests have realistic data",
+      "`buddy generate:migrations`, review, `buddy migrate`"
+    ],
+    "out_of_scope": ["The ingest API (P10.02)", "Any UI"],
+    "notes": [
+      "WafEvent mirrors the normalised shape ts-cloud already defines (`WafEvent` in ts-cloud `packages/ts-cloud/src/protection/waf.ts`) so events need no translation",
+      "Severity is one enum shared by Detection, Finding and CveExposure so the risk score (P10.12) can combine them",
+      "Model rows are read synchronously; keep any set: hook synchronous so writes stay in place (AGENTS.md data layer section)"
+    ],
+    "accept": [
+      "Migrations generate cleanly from the models and apply on SQLite",
+      "`buddy seed` fills every table from the factories",
+      "`./buddy typecheck`, `./buddy lint` and `./buddy test` pass"
+    ]
+  },
+  {
+    "key": "P10.02",
+    "goal": "Let hosts (Stacks boxes and desktops) enrol with Guardian once and then report scans, detections, host findings, CVE exposure and WAF events over an authenticated API, idempotently and in batches.",
+    "refs": ["routes/api.ts", "app/Actions/", "zig-waf `src/api-v1.json` (enrollment-tokens and nodes resources, for naming parity)"],
+    "scope": [
+      "Enrolment: an operator creates a single-use enrolment token in Guardian; `POST /api/hosts/enrol` exchanges it for a host id and a long-lived host credential (hashed at rest, rotatable, revocable)",
+      "Ingest endpoints for batches: scans with their detections, findings (upsert by host plus stable finding id, so a repeated check updates last seen instead of duplicating), CVE exposure (replace-set per host and inventory run), WAF events (append, deduplicated by an event id)",
+      "Heartbeat endpoint carrying agent version, database versions and protection state",
+      "Request size limits, per-host rate limits, and validation through the model schemas",
+      "OpenAPI output from the routes so the CLI and agent use a typed client"
+    ],
+    "out_of_scope": ["The federated zig-waf fleet client (P10.15)", "Dashboard pages"],
+    "notes": [
+      "Field names follow zig-waf's node and enrollment resources where they overlap, so a host enrolled in both systems lines up by node id",
+      "Uploads of quarantined samples are not part of ingest: hashes and metadata only, samples stay on the host unless an operator asks for one"
+    ],
+    "accept": [
+      "Feature tests cover enrolment, token reuse refused, revoked credential refused, idempotent replay of every ingest batch",
+      "A batch of 10k WAF events ingests in under 2 seconds on SQLite in the test suite",
+      "`./buddy test` and `./buddy typecheck` pass"
+    ]
+  },
+  {
+    "key": "P10.03",
+    "goal": "One TypeScript package that every Guardian surface (CLI, desktop agent, server) uses to talk to the engine and to apply policy, so behaviour cannot drift between them.",
+    "refs": ["packages/core/ (new workspace package)", "zig-utils/zig-anti-virus `ts/` package `@zig-utils/anti-virus`", "~/Code/Apps/system-cleaner/packages/core (workspace package layout to follow)"],
+    "scope": [
+      "Engine client: open the compiled database through `@zig-utils/anti-virus` in process, or connect to a running zavd over its Unix socket (native protocol, falling back to clamd INSTREAM), with one interface either way",
+      "Policy model: which surfaces and paths to scan, exclusions, limits, fail-closed, schedules, suppressions; loaded from a file and from the server",
+      "Report model: scan results, detections, host findings and CVE exposure as typed records matching the P10.02 API",
+      "Quarantine operations on the local host: move, restore, delete, with an index file",
+      "A small typed API client for the Guardian server"
+    ],
+    "out_of_scope": ["Command parsing (P10.04)", "Desktop UI"],
+    "notes": [
+      "No logic duplicated from the engine: severity, verdicts and finding categories come from the engine's JSON output",
+      "The package imports everything it uses explicitly; browser auto-imports do not reach workspace modules"
+    ],
+    "accept": [
+      "Unit tests scan the EICAR file through both the in-process and the socket path and get the same result",
+      "Quarantine round trip (move, restore) preserves bytes and mode",
+      "The package typechecks on its own"
+    ]
+  },
+  {
+    "key": "P10.04",
+    "goal": "A `guardian` command line that does everything an operator needs on a host: scan, watch, run host checks and CVE audits, update signatures, manage quarantine, run the daemon, show status and enrol with a Guardian server.",
+    "refs": ["packages/cli/ (new)", "~/Code/Apps/system-cleaner/packages/cli/bin/system-cleaner.ts and packages/cli/src (clapp-based CLI to follow)", "~/Code/Tools/clapp"],
+    "scope": [
+      "Commands: `guardian scan <path...>`, `guardian watch <path...>`, `guardian host` (host checks, fast or `--deep`), `guardian audit` (CVE exposure), `guardian update`, `guardian quarantine ls|restore|rm`, `guardian daemon start|stop|status`, `guardian status`, `guardian enrol <server> <token>`",
+      "Flags: `--json` on every command, `--min-severity`, `--exclude`, `--threads`, `--report` (send results to the enrolled server)",
+      "Exit codes by severity: 0 clean, 1 suspicious or low, 2 infected or high, 3 critical, 4 error",
+      "Human output: a progress line during scans, a summary table, remediation text for findings",
+      "Built with clapp; shells out to nothing, all work goes through packages/core"
+    ],
+    "out_of_scope": ["Exposing the CLI as a buddy command and publishing the bin (P10.05)"],
+    "notes": [
+      "`guardian host` and `guardian audit` are thin wrappers over `zav host` and `zav audit` JSON so the Zig and TypeScript layers report identical findings",
+      "Linux-only checks print a clear skip on macOS rather than failing"
+    ],
+    "accept": [
+      "Tests run every command against fixtures, including EICAR plain and zipped, and assert JSON output and exit codes",
+      "`guardian scan --json` output validates against the P10.02 ingest schema",
+      "`guardian host` runs on a Linux CI runner and reports at least the hardening findings"
+    ]
+  },
+  {
+    "key": "P10.05",
+    "goal": "Make the CLI reachable both as `buddy guardian:*` inside the app and as a standalone `guardian` binary people can install.",
+    "refs": ["app/Commands/ (each file is a command, defineCommand from @stacksjs/cli)", "package.json `bin`", "~/Code/Apps/uplink/app/Commands/Uplink.ts (an app command that also installs a service)"],
+    "scope": [
+      "app/Commands/Guardian*.ts wrapping packages/cli so `./buddy guardian:scan` and friends work in a checkout",
+      "A compiled single-file binary per platform (macOS arm64 and x64, Linux x64 and arm64) bundling the engine's prebuilt library",
+      "Publish through pantry and npm under the Guardian package name; `bun add -g` and pantry install both put `guardian` on PATH",
+      "A launchd agent on macOS and a systemd unit on Linux installed by `guardian daemon install`"
+    ],
+    "out_of_scope": ["The desktop app bundle (P11)"],
+    "notes": [
+      "A compiled Bun binary cannot load files off disk at runtime; bake every import in and locate the engine library next to the executable",
+      "Releases of the CLI before 1.0 are 0.x and need no extra approval; a 1.0 needs the maintainer's explicit approval"
+    ],
+    "accept": [
+      "`./buddy guardian:scan` and the standalone `guardian scan` produce identical JSON on the same fixture",
+      "The compiled binary runs on a clean macOS and a clean Linux machine with no Bun installed",
+      "Install and uninstall of the daemon service are idempotent"
+    ]
+  },
+  {
+    "key": "P10.06",
+    "goal": "The dashboard's frame and first screen: an overview that tells an operator in one look whether the fleet is safe, built on the shared zig-waf console design system so Guardian and zig-wafd look and behave as one product.",
+    "refs": ["resources/views/", "resources/layouts/", "zig-utils/zig-waf `console/` (design system from WAF-61)", "stacks-design-taste skill, Section 14 pre-flight"],
+    "scope": [
+      "Application shell: navigation for Overview, Detections, Quarantine, Hosts, Vulnerabilities, Web firewall, Feeds, Policies, Settings; signed-in operator; light and dark",
+      "Overview: fleet score (0 to 100) with trend, hosts by state, open detections and critical findings, KEV exposure count, WAF blocks and anomalies over time, signature age per feed",
+      "Every number links to the filtered page behind it",
+      "Uses the zig-waf console component library for tokens, layout primitives, tables and charts",
+      "Empty, loading and error states for every panel"
+    ],
+    "out_of_scope": ["The individual pages (P10.07 onward)"],
+    "notes": [
+      "stx and ts-css only; no vanilla DOM code in templates; no em-dashes in any copy",
+      "The design system is consumed, not copied: a fix belongs in zig-waf's console package"
+    ],
+    "accept": [
+      "The design-taste pre-flight is ticked honestly and recorded in the PR",
+      "The overview renders with seeded data and with an empty database, verified in a real browser at desktop and phone widths",
+      "`./buddy test`, `./buddy typecheck` and `./buddy lint` pass"
+    ]
+  },
+  {
+    "key": "P10.07",
+    "goal": "Pages for what the file engine found and what was done about it: detections across the fleet and the quarantine where infected files are held.",
+    "refs": ["resources/views/", "app/Actions/", "app/Models/Detection.ts", "app/Models/QuarantineItem.ts"],
+    "scope": [
+      "Detections list: filter by host, severity, signature, source (ClamAV, Guardian rules, MalwareBazaar, heuristics), time; group by signature; search by sha256",
+      "Detection detail: file and container path, hashes, signature and its source, the scan it came from, the host, action taken, and related WAF or host findings for the same host and time",
+      "Quarantine list and detail with restore and delete actions; both are sent to the host as commands and confirmed by the next report",
+      "Bulk actions with a confirmation that states exactly how many files and hosts are affected; delete is permanent and says so"
+    ],
+    "out_of_scope": ["Correlation scoring (P10.12)"],
+    "notes": ["Restore of a file whose signature still matches needs an explicit override and records who did it"],
+    "accept": [
+      "Feature tests for filters, restore and delete commands and the audit trail",
+      "Pages verified in a real browser with seeded data",
+      "Restore and delete never act without the confirmation step"
+    ]
+  },
+  {
+    "key": "P10.08",
+    "goal": "Pages for the fleet itself: every enrolled host, its protection state and the host-check findings it reports.",
+    "refs": ["resources/views/", "app/Models/Host.ts", "app/Models/Finding.ts"],
+    "scope": [
+      "Hosts list: platform, role (server or desktop), agent and database versions, last seen, protection state (real-time on or off, daemon healthy), open findings by severity, score",
+      "Host detail: findings grouped by category (malware on host, network, kernel, persistence, privileges, hardening, integrity), each with remediation text and first and last seen; recent scans; CVE exposure summary; WAF summary if the host serves sites",
+      "Suppress a finding with a reason and an optional expiry; suppressions sync to the host's policy",
+      "Revoke a host's credential and remove a host"
+    ],
+    "out_of_scope": ["CVE page (P10.09)", "WAF section (P10.10)"],
+    "notes": ["A host that stops reporting goes stale after a configurable interval and is shown as such, not as healthy"],
+    "accept": [
+      "Feature tests for suppression sync and stale detection",
+      "Verified in a real browser with seeded hosts on both platforms"
+    ]
+  },
+  {
+    "key": "P10.09",
+    "goal": "Show which hosts are exposed to which vulnerabilities, worst first, and turn a web-facing exposure into a proposed zig-waf virtual patch that an operator can roll out and roll back.",
+    "refs": ["app/Models/CveExposure.ts", "zig-utils/zig-waf `src/api-v1.json` `/policies`, `/policies/{name}/versions/{version}/rules`, `/rollouts/{name}`"],
+    "scope": [
+      "Vulnerabilities page: KEV entries first, then by CVSS; columns for package, ecosystem, installed and fixed version, hosts affected, KEV due date",
+      "Per-CVE detail with the affected hosts and the upgrade that fixes it",
+      "Virtual-patch proposals: when an exposed package is web-facing on a host that serves sites through zig-waf, propose a ruleset change (a CRS rule to enable or a custom SecRule) scoped to that host's sites",
+      "Proposals go through zig-waf's ruleset versioning and rollout (WAF-63) via the federated client; Guardian records who approved and can roll back"
+    ],
+    "out_of_scope": ["Writing the rule library itself beyond a starter set for current KEV web entries"],
+    "notes": [
+      "A virtual patch is never applied automatically; the operator approves each rollout",
+      "Proposals start in detection mode and graduate like any other rule"
+    ],
+    "accept": [
+      "Feature tests cover ordering, proposal generation and rollback through a mocked controller",
+      "An end-to-end test against a local zig-wafd shows a proposed rule appearing in a new policy version"
+    ]
+  },
+  {
+    "key": "P10.10",
+    "goal": "Guardian's web firewall section, assembled from the same stx components zig-wafd embeds, so every WAF screen has exactly one implementation.",
+    "refs": ["zig-utils/zig-waf `console/` component library (WAF-60 to WAF-65)", "resources/views/"],
+    "scope": [
+      "Mount the console components for live events and transaction detail, exclusions, rulesets, fleet nodes, audit search and metrics inside Guardian's shell",
+      "Data comes from Guardian's ingest (WafEvent) for history and from the federated zig-waf controller for live state, behind one adapter the components accept",
+      "Per-site view: mode (off, detection, blocking), paranoia level, anomaly score distribution, top rules, false-positive candidates"
+    ],
+    "out_of_scope": ["The exclusion-to-config flow (P10.11)"],
+    "notes": ["If a component needs a change, change it in zig-waf's console package and bump the dependency; no forks of components in this repo"],
+    "accept": [
+      "The same component renders identically embedded in zig-wafd and in Guardian (screenshot comparison in both themes)",
+      "Pages verified in a real browser against a local zig-wafd producing events"
+    ]
+  },
+  {
+    "key": "P10.11",
+    "goal": "Close the loop from detection to enforcement: an operator reviews what a site's WAF logged, turns false positives into reviewed exclusions in the app's own config, and only then graduates the site from detection to blocking.",
+    "refs": ["ts-cloud `packages/ts-cloud/src/protection/waf.ts` (`WafConfig`, `WafRuleExclusion`, `renderWafConfig`)", "stacksjs/stacks `config/security.ts` `waf` section (P9.30)"],
+    "scope": [
+      "From the exclusion wizard (WAF-64) produce `WafRuleExclusion` entries (rule id, optional path pattern, required reason)",
+      "Write them as a reviewed change to the target app's config: open a pull request or produce a patch, never edit a deployed box directly",
+      "Mode graduation checklist per site: CRS compatibility gates green, N days in detection, false-positive rate below a threshold, exclusions reviewed; only then offer the switch to blocking",
+      "Record every graduation and rollback with who and why"
+    ],
+    "out_of_scope": ["Changing ts-cloud defaults: blocking stays off by default until WAF-73 qualification"],
+    "notes": [
+      "Patterns go through ts-cloud's `isSafePattern` and `escapeSecLang` so a wizard cannot produce a rule that breaks the config",
+      "Nothing flips to blocking automatically, matching ts-cloud's stated policy in waf.ts"
+    ],
+    "accept": [
+      "A wizard-generated exclusion renders through `renderWafConfig` and validates with zig-waf's validate command in a test",
+      "The graduation action is unavailable until every checklist item is satisfied",
+      "End-to-end test: false positive logged, exclusion generated, config rendered, event no longer matches"
+    ]
+  },
+  {
+    "key": "P10.12",
+    "goal": "Combine what the three engines see into one per-host risk score and a correlation view, so an upload detection, a WAF attack and a host finding from the same source are seen as one incident.",
+    "refs": ["app/Models/", "ts-cloud `packages/ts-cloud/src/protection/ddos.ts` and `ratelimit.ts` (blocklists)"],
+    "scope": [
+      "Correlation keys: host, source IP, time window, file hash",
+      "Incident grouping with a timeline across detections, WAF events and findings",
+      "Per-host risk score from open severities, KEV exposure, recent detections and WAF anomalies, with the formula documented and its inputs visible on the host page",
+      "Suggested response: push a repeat-offender IP into ts-cloud's blocklists as a reviewed change"
+    ],
+    "out_of_scope": ["Automatic blocking"],
+    "notes": ["The score must be explainable: every point traces to a record an operator can open"],
+    "accept": [
+      "Unit tests for the scoring formula and the grouping windows",
+      "Seeded scenario (malicious upload plus WAF hits plus a new persistence finding) shows as one incident"
+    ]
+  },
+  {
+    "key": "P10.13",
+    "goal": "Serve Guardian's own rule feed and the compiled CVE index to enrolled hosts, so hosts update from the Guardian server instead of every host pulling every upstream feed.",
+    "refs": ["zig-utils/zig-anti-virus Guardian rules format (P4.15)", "zig-utils/zig-anti-virus `.zavcve` index (P7.12)"],
+    "scope": [
+      "Endpoints for the Guardian rule pack and the CVE index with versions, signatures (ed25519) and conditional requests (ETag, If-None-Match)",
+      "A job that rebuilds the CVE index from KEV, NVD and OSV on a schedule and publishes it",
+      "Hosts verify the signature before swapping",
+      "ClamAV-derived databases are never served: each host fetches and compiles those itself"
+    ],
+    "out_of_scope": ["The signature feed UI (P10.14)"],
+    "notes": ["Respect upstream rate limits and terms: NVD with an API key if configured, one fetch per server not per host"],
+    "accept": [
+      "A host updates from the server and refuses a tampered blob",
+      "Conditional requests return 304 when nothing changed",
+      "Tests confirm no ClamAV-derived file is ever served"
+    ]
+  },
+  {
+    "key": "P10.14",
+    "goal": "Let operators see and control where detections come from and how the fleet is configured: the signature feeds and the policies hosts follow.",
+    "refs": ["app/Models/SignatureFeed.ts", "app/Models/Policy.ts"],
+    "scope": [
+      "Feeds page: each feed (ClamAV main and daily, Guardian rules, MalwareBazaar, CVE index) with version, age per host, compile coverage report (signatures skipped by reason), enable and disable",
+      "MalwareBazaar stays off by default; enabling it asks for the operator's own key and shows its non-commercial terms",
+      "Policies page: create and assign policies (scan surfaces, exclusions, limits, fail-closed, schedules, suppressions) to hosts or host groups, with a diff before saving"
+    ],
+    "out_of_scope": ["Host-side policy enforcement (in the CLI and agent)"],
+    "accept": [
+      "Feature tests for policy assignment and for MalwareBazaar staying off until a key is entered",
+      "Verified in a real browser"
+    ]
+  },
+  {
+    "key": "P10.15",
+    "goal": "Talk to zig-waf's fleet controller through a typed client generated from its OpenAPI document, so Guardian shows and drives WAF nodes, policies and rollouts without duplicating the controller.",
+    "refs": ["zig-utils/zig-waf `src/api-v1.json` (`/nodes`, `/policies`, `/rollouts/{name}`, `/events`, `/enrollment-tokens`, `/certificates/rotation-due`)"],
+    "scope": [
+      "Generate a TypeScript client from api-v1.json at build time; fail the build when the spec changes incompatibly",
+      "Map zig-waf node ids to Guardian hosts (one node identity per machine, from WAF-49)",
+      "Read nodes, policies, rollouts and events; perform rollouts and rollbacks when an operator approves them",
+      "Configure the controller URL and an operator token in Guardian settings"
+    ],
+    "out_of_scope": ["Replacing the controller's own storage or auth"],
+    "notes": ["zig-waf's controller remains the authority for WAF state; Guardian caches for display only"],
+    "accept": [
+      "Contract tests against the spec and an end-to-end test against a local controller",
+      "A spec change that removes a used field fails the build"
+    ]
+  },
+  {
+    "key": "P10.16",
+    "goal": "Gate the Guardian app phase: everything built so far works together, passes every check and has been looked at in a real browser.",
+    "scope": [
+      "`./buddy test`, `./buddy typecheck`, `./buddy lint` green in CI",
+      "Every page opened in a real browser with seeded data, in light and dark, at desktop and phone widths",
+      "CLI exercised end to end against a local Guardian server: enrol, scan, report, see the detection in the dashboard",
+      "Design-taste pre-flight re-run across all pages"
+    ],
+    "accept": [
+      "All checks green and screenshots attached to the issue",
+      "No em-dashes in any user-visible string (grep check in CI)",
+      "Known gaps listed in the closing comment"
+    ]
+  },
+  {
+    "key": "P11.01",
+    "goal": "Turn the scaffolded Mac app into Guardian's: correct identity, a launcher that runs the agent and the tray, and the entitlements Full Disk Access needs, following the patterns SystemCleaner and Uplink already proved.",
+    "refs": [
+      "config/desktop.ts (scaffold: `macos.agent: true`, bundleId still `com.example.guardian`)",
+      "app/Desktop/Agent.ts",
+      "~/Code/Apps/system-cleaner/app/Desktop/launcher.ts (tray and trayPopover options) and bundle.ts (`--system-tray`, `--tray-popover`)",
+      "~/Code/Apps/uplink/app/Desktop/Entitlements.plist, Info.plist.json, PrivacyInfo.xcprivacy"
+    ],
+    "scope": [
+      "Real bundle id and app name, icon and tray template image",
+      "Launcher that starts the agent, opens the main window on demand, and keeps running from the tray when the window closes",
+      "Entitlements and Info.plist strings for Full Disk Access (the agent process holds it), notifications and login item",
+      "A first-run screen that explains Full Disk Access and opens the right System Settings pane"
+    ],
+    "out_of_scope": ["Scanning and watching (P11.02)", "Endpoint Security (P11.09)"],
+    "notes": [
+      "Full Disk Access belongs to the process that reads files; keep it on the agent and do not rebuild in a way that changes its code signature identity between runs",
+      "Signing uses the Developer ID identity by SHA-1 because same-named certificates exist"
+    ],
+    "accept": [
+      "`bun run build:desktop` produces a signed app that launches, shows the tray icon and opens the window",
+      "Granting Full Disk Access to the built app lets the agent read a protected path in a test scan"
+    ]
+  },
+  {
+    "key": "P11.02",
+    "goal": "The app's agent does the real work: it loads the engine in process through FFI, keeps the database updated, and watches the user's folders with FSEvents so new and changed files are scanned as they appear.",
+    "refs": ["app/Desktop/Agent.ts", "packages/core (P10.03)", "zig-utils/zig-anti-virus FSEvents watcher (P7.16)"],
+    "scope": [
+      "Agent routes for status, scan start and progress, quarantine actions, settings, consumed by the native screens",
+      "Engine loaded through `@zig-utils/anti-virus`, one scratch per worker, async completion queue so the agent's event loop never blocks",
+      "Watched folders (Downloads, Desktop, Documents by default, configurable) with FSEvents; debounce and skip files still being written",
+      "Signature updates on a schedule with the out-of-process compile, then an engine reload",
+      "Notifications for detections"
+    ],
+    "out_of_scope": ["Blocking protection (P11.09)"],
+    "notes": ["The built app runs a bundled agent: no runtime Bun.build and no source files read via import.meta.dir"],
+    "accept": [
+      "Dropping EICAR into Downloads raises a notification and a quarantine entry within 2 seconds in the built app",
+      "Agent memory stays within the engine's targets plus the Bun runtime, measured and recorded in the issue"
+    ]
+  },
+  {
+    "key": "P11.03",
+    "goal": "A tray popover that answers 'am I protected?' at a glance and offers the one action people want most, Quick Scan.",
+    "refs": ["~/Code/Apps/system-cleaner/resources/views/app/tray.stx, resources/layouts/tray.stx, resources/scripts/tray.ts", "~/Code/Apps/system-cleaner/scripts/verify-tray.ts"],
+    "scope": [
+      "Popover content: protection status (real-time on, signatures fresh, Full Disk Access granted), last scan time and result, Quick Scan button with progress, signature age, threats found and quarantined",
+      "Tray icon reflects state (protected, attention, scanning)",
+      "Open Guardian and Quit actions",
+      "A verify script modelled on SystemCleaner's verify-tray.ts"
+    ],
+    "accept": [
+      "Quick Scan from the popover completes and updates the status in the built app",
+      "Screenshot of the popover in light and dark attached to the issue",
+      "The verify script passes"
+    ]
+  },
+  {
+    "key": "P11.04",
+    "goal": "The main window: a native AppKit sidebar with every Guardian section, drawn from stx native screens, with the API running inside the app.",
+    "refs": ["resources/native/Main.stx (scaffold)", "~/Code/browser/resources/native/Main.stx (SidebarRow and SidebarDivider usage)", "Craft native sidebar (packages/zig/src/components/native_sidebar.zig)"],
+    "scope": [
+      "Sidebar sections: Overview, Scan, Real-time protection, Quarantine, Host checks, Vulnerabilities, Updates, Settings",
+      "Scan: choose folders or full disk, progress, results with actions",
+      "Real-time: watched folders, on and off, recent events",
+      "Quarantine: restore and delete with confirmation",
+      "Host checks and Vulnerabilities from `zav host` and `zav audit` run locally",
+      "Settings: policy, schedules, enrolment with a Guardian server, MalwareBazaar key (off by default)"
+    ],
+    "out_of_scope": ["Fixes to Craft or stx themselves (P11.06, P11.07)"],
+    "notes": ["Verify the real window with screenshots of the built app, not only the browser view of the agent"],
+    "accept": [
+      "Every section reachable and functional in the built app, screenshots attached",
+      "Light and dark appearance correct"
+    ]
+  },
+  {
+    "key": "P11.05",
+    "goal": "Downloads in Craft web views must not appear in the user's folder as finished, trusted files before they are checked. Download to a partial file, run a scan hook, then reveal the file with the quarantine attribute set, as Safari does.",
+    "refs": [
+      "packages/macos/templates/CraftMacWebView.swift: `CraftMacDownloads.adopt`, `decideDestinationUsing` (picks the Downloads path), `downloadDidFinish`",
+      "Consumers: stacksjs/browser `app/Desktop/downloads-api.ts`"
+    ],
+    "scope": [
+      "Write to `<name>.part` (or a hidden staging name) and rename on success",
+      "An optional scan hook the host app registers (bridge call); the download reports a `scanning` state, then `finished` or `blocked`",
+      "Set `com.apple.quarantine` with the agent name and source URL on the final file",
+      "Clean up partial files on failure or cancel"
+    ],
+    "out_of_scope": ["The scanning itself (the host app's hook)"],
+    "notes": ["Without a registered hook behaviour is unchanged except the staging name and the quarantine attribute"],
+    "accept": [
+      "Tests in Craft's suite for staging, rename, failure cleanup and the attribute",
+      "A downloaded file shows the Gatekeeper prompt when opened",
+      "Craft released with the change"
+    ]
+  },
+  {
+    "key": "P11.06",
+    "goal": "Fix in Craft, at the source, every AppKit sidebar, tray or window problem Guardian runs into, and release Craft so Guardian consumes the fix instead of a workaround.",
+    "refs": ["packages/zig/src/components/native_sidebar.zig", "packages/zig/src/tray_popover.zig", "packages/zig/src/tray_click.zig"],
+    "scope": [
+      "Each problem found while building P11.04 and P11.03 becomes a fix with a test or a verify script in this repository",
+      "Release Craft and update Guardian"
+    ],
+    "notes": ["Verify on screen: build the core with the pinned Zig, copy the runtime into the app, re-sign and relaunch"],
+    "accept": [
+      "Every fix released and listed in the closing comment",
+      "Guardian carries no Craft workaround"
+    ]
+  },
+  {
+    "key": "P11.07",
+    "goal": "Fix in stx, at the source, every native-screen problem Guardian runs into (components, bindings, directives, build), and release stx so Guardian consumes the fix.",
+    "scope": [
+      "Each problem found while building the native screens becomes a fix with a regression test",
+      "Run stx's release gates (format check, preflight, Chrome CI) before releasing"
+    ],
+    "accept": [
+      "Every fix released and listed in the closing comment",
+      "Guardian carries no stx workaround"
+    ]
+  },
+  {
+    "key": "P11.08",
+    "goal": "Gate the desktop phase on what a user would actually experience: a signed build that installs, shows the right UI, and catches malware live.",
+    "scope": [
+      "Signed Developer ID build with hardened runtime",
+      "Install on a clean user account, grant Full Disk Access, enable real-time protection",
+      "Drop EICAR (plain and zipped) into a watched folder; it is detected, quarantined and notified",
+      "Tray and every main-window section screenshotted in light and dark"
+    ],
+    "out_of_scope": ["Any public release: no public release and no 1.0 without the maintainer approving that specific release"],
+    "accept": [
+      "Screenshots and a short screen recording attached",
+      "Measured agent memory and scan throughput recorded"
+    ]
+  },
+  {
+    "key": "P11.09",
+    "goal": "Blocking protection on macOS: refuse to let a known-malicious file execute or open, using an Endpoint Security system extension, once Apple grants the entitlement.",
+    "refs": ["zig-utils/zig-anti-virus Endpoint Security helper (P7.17)"],
+    "scope": [
+      "Request the `com.apple.developer.endpoint-security.client` entitlement from Apple (maintainer action)",
+      "Ship the helper as a system extension inside the app; approval flow in Settings",
+      "AUTH_EXEC and AUTH_OPEN decisions from the engine within the event deadline, with kernel-side caching of allow results",
+      "Clear UI when the extension is not approved: protection falls back to FSEvents detection after the fact"
+    ],
+    "notes": ["This issue needs the maintainer to apply for and receive the entitlement before work can be verified"],
+    "accept": [
+      "With the extension approved, executing EICAR packaged as an executable is denied",
+      "Deadline misses are logged and never hang the system"
+    ]
+  },
+  {
+    "key": "P12.01",
+    "goal": "Give ts-cloud a first-class guardian service so any box it manages runs zavd with a small, honest memory ceiling and a socket every tenant on the box can use.",
+    "refs": [
+      "packages/ts-cloud/src/drivers/shared/app-services.ts and box-provision.ts (where shared services are defined)",
+      "packages/ts-cloud/src/drivers/shared/deploy-script.ts `buildAutoMemoryHigh`, `buildCommitmentReport`"
+    ],
+    "scope": [
+      "A `guardian` service option in config: installs the zav release for the box's platform, writes a systemd unit for zavd with `MemoryMax` sized to the measured footprint, runs signature updates on a timer with the out-of-process compile",
+      "Unix socket in a shared group that tenant units join; optional loopback TCP for clients that only speak TCP",
+      "Health probe (PING) wired into ts-cloud's managed services probe",
+      "Rollback to the previous zav version on a failed health check"
+    ],
+    "out_of_scope": ["Removing clamav assumptions from reports (P12.02)"],
+    "notes": ["Docs and code use generic names (the box, tenants); no hostnames or addresses in this public repository"],
+    "accept": [
+      "Unit tests for the generated unit and install script",
+      "A converge run on a test box brings zavd up, PING answers, EICAR over INSTREAM is FOUND",
+      "ts-cloud released"
+    ]
+  },
+  {
+    "key": "P12.02",
+    "goal": "ts-cloud's memory commitment report and docs stop assuming ClamAV is the scanner on a box.",
+    "refs": ["packages/ts-cloud/src/drivers/shared/deploy-script.ts (comment naming clamav and postgres as infrastructure services in the commitment report)", "docs/config.md and packages/core/src/types.ts `proxyTo` documentation (mentions a clamav-daemon dependency)"],
+    "scope": [
+      "Count the zavd unit in the commitment report like any other service",
+      "Update comments and docs that cite clamav as the expected scanner",
+      "Keep supporting boxes that still run clamd until they are migrated"
+    ],
+    "accept": ["Tests updated and green", "ts-cloud released"]
+  },
+  {
+    "key": "P12.03",
+    "goal": "Make the mail server's existing ClamAV client usable in production: connect over a Unix socket as well as TCP, and let operators choose to reject mail when the scanner is unavailable instead of silently passing it.",
+    "refs": ["packages/zig/src/antispam/clamav.zig (`ClamAVScanner.init` takes host and port; `scanMessage` returns clean when disabled)"],
+    "scope": [
+      "Unix socket transport (path from config), keeping TCP",
+      "Fail mode setting: `open` (current behaviour, logged) or `closed` (temporary failure to the sender, so mail is retried, not lost)",
+      "Timeouts and size limits taken from config; StreamMaxLength exceeded maps to a clear result",
+      "Works unchanged against both clamd and zavd since they speak the same protocol"
+    ],
+    "accept": [
+      "Tests against a fake clamd for OK, FOUND, error, timeout, socket and TCP paths",
+      "`zig build test` passes with the repository's pinned Zig"
+    ]
+  },
+  {
+    "key": "P12.04",
+    "goal": "Scan every message received over SMTP before it is stored: both the DATA path and the BDAT (CHUNKING) path, which duplicates the pipeline and must not be a bypass.",
+    "refs": ["packages/zig/src/core/protocol.zig: `Session.handleData` (spam scoring, then `saveMessage`), the BDAT path and its own `saveMessage` call, `fn saveMessage`"],
+    "scope": [
+      "Call the scanner after spam scoring and before saveMessage in handleData",
+      "Same call before saveMessage in the BDAT path; factor both into one function so they cannot drift",
+      "FOUND: reject with a 5xx and the signature name, log, count; error: follow the fail mode from P12.03",
+      "Add a header recording the scan result for accepted mail"
+    ],
+    "out_of_scope": ["Other intake protocols (P12.05)"],
+    "accept": [
+      "Tests send EICAR via DATA and via BDAT and both are rejected",
+      "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` pass"
+    ]
+  },
+  {
+    "key": "P12.05",
+    "goal": "Close the other ways a message or file enters the mail server without passing SMTP: IMAP APPEND, ActiveSync SendMail, CalDAV and CardDAV PUT, and webmail attachment uploads.",
+    "refs": [
+      "packages/zig/src/protocol/imap.zig (APPEND literal handling)",
+      "packages/zig/src/protocol/activesync.zig (`handleSendMail`)",
+      "packages/zig/src/protocol/caldav.zig (PUT handler)",
+      "packages/zig/src/api/webmail_http.zig `handleUpload` (`store.addUpload`)"
+    ],
+    "scope": [
+      "Scan the payload in each handler before it is persisted or sent, through the same function P12.04 introduced",
+      "Protocol-appropriate refusals: IMAP NO with a reason, ActiveSync status error, HTTP 422 for CalDAV and webmail",
+      "Webmail download path keeps its sandbox CSP and nosniff headers"
+    ],
+    "accept": [
+      "A test per protocol proves EICAR is refused",
+      "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` pass"
+    ]
+  },
+  {
+    "key": "P12.06",
+    "goal": "Replace the mail server's in-tree MIME parsing with zig-mime, the streaming walker shared with the engine, so attachments are parsed one way everywhere and bare-LF evasion stops working.",
+    "refs": ["packages/zig/src/message/mime.zig", "packages/zig/src/message/streaming_parser.zig", "tests/fuzz_mime_parser.zig", "zig-utils/zig-mime"],
+    "scope": [
+      "Add zig-mime as a build.zig.zon dependency (pantry registry URL and hash)",
+      "Move callers to zig-mime; keep a thin adapter only where an API shape differs",
+      "Delete the replaced code once nothing uses it",
+      "Point the MIME fuzz target at the new parser"
+    ],
+    "accept": [
+      "Every existing MIME test passes on the new parser",
+      "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` pass"
+    ]
+  },
+  {
+    "key": "P12.07",
+    "goal": "Switch the production mail server to scanning through zavd. The maintainer decided this ships as soon as the full suite passes; a push to main deploys it.",
+    "scope": [
+      "Production config points the scanner at the zavd socket provided by the guardian service (P12.01), fail mode closed",
+      "Push to main once every suite below is green; watch the deploy workflow to completion",
+      "After deploy: send the EICAR test file to a real mailbox over SMTP submission and confirm it is rejected; send a clean message and confirm delivery; confirm IMAP APPEND of EICAR is refused",
+      "Watch logs and health alerts for an hour after the cutover"
+    ],
+    "notes": [
+      "This repository is public: name no hosts or addresses in commits or comments",
+      "Anything that makes the server log a TLS decrypt error trips its health alert; probe with well-formed clients only"
+    ],
+    "accept": [
+      "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` green on the commit that deploys",
+      "Deploy workflow succeeded and its port checks passed",
+      "Post-deploy EICAR rejection and clean delivery confirmed and recorded in the closing comment"
+    ]
+  },
+  {
+    "key": "P12.08",
+    "goal": "Move the package registry's malware scanning from clamav-daemon to zavd. The scanner client stays as it is because zavd speaks the clamd protocol; the deploy stops installing and capping ClamAV. Ships as soon as tests pass; a push to main deploys it.",
+    "refs": [
+      ".github/workflows/deploy-registry.yml (apt install of clamav-daemon and clamav-freshclam, clamd.conf rewrite, the clamav-daemon.service.d capacity drop-in, `Requires=` on the registry unit)",
+      "packages/registry/src/malware-scanning.ts (`ClamAvScanner`, `createMalwareScannerFromEnv`, `CLAMD_SOCKET`)",
+      ".github/actions/setup-clamav"
+    ],
+    "scope": [
+      "Deploy installs zav and runs zavd under the guardian service unit with its own small memory ceiling; `CLAMD_SOCKET` points at zavd's socket",
+      "Remove the ClamAV apt, config and drop-in blocks and the clamav-daemon dependency from the registry unit",
+      "Keep the isolated scanner worker and its limits; re-measure them against zavd",
+      "CI action that sets up a scanner for tests uses zavd"
+    ],
+    "accept": [
+      "`bun test` in packages/registry green, including malware-scanning.test.ts, publish-malware.test.ts, malware-early-response.test.ts and scanner-worker.test.ts against zavd",
+      "Deploy workflow succeeded",
+      "After deploy: publishing a package containing the EICAR file is refused with the blocked verdict; a clean publish succeeds; the readiness endpoint reports the scanner healthy",
+      "Measured scanner memory before and after recorded in the closing comment"
+    ]
+  },
+  {
+    "key": "P12.09",
+    "goal": "The pantry client scans what it downloads before it extracts or installs it, so a compromised mirror or package cannot drop malware onto a developer machine or a box.",
+    "refs": [
+      "packages/zig/src/install/installer.zig (npm tarballs: integrity verified, then extracted)",
+      "packages/zig/src/install/pipeline.zig (`verifyIntegrity` call sites in the pipeline and bulk download)",
+      "packages/zig/src/install/verified_staging.zig `Extraction.extractVerified`",
+      "packages/zig/src/cache/package_cache.zig"
+    ],
+    "scope": [
+      "Link zav as a Zig dependency; scan the verified archive bytes right after each integrity check and the extracted tree before it is promoted",
+      "Cache the verdict with the package's sha256 so a cached package is not rescanned until the database changes",
+      "Config: on by default when a compiled database is present, `off`, and `fail-closed`",
+      "Clear error naming the package, file and signature"
+    ],
+    "accept": [
+      "Tests install a fixture package containing EICAR and the install fails before anything is linked",
+      "Clean installs show no measurable slowdown on a cached run",
+      "pantry's own test suites pass; release cut"
+    ]
+  },
+  {
+    "key": "P12.10",
+    "goal": "The browser scans every finished download and marks infected ones, using Craft's new scan hook.",
+    "refs": ["app/Desktop/downloads-api.ts (`record`, download states)", "app/Desktop/downloads.ts", "resources/native/Main.stx (download events)", "Craft scan hook (P11.05)"],
+    "scope": [
+      "Register a scan hook with Craft that calls the engine in the agent",
+      "New download states `scanning` and `blocked`; infected files are moved to quarantine and the download list shows why",
+      "Setting to turn scanning off"
+    ],
+    "accept": [
+      "Downloading the EICAR file from a local test page ends in the blocked state and the file is not in Downloads",
+      "Clean downloads behave as before"
+    ]
+  },
+  {
+    "key": "P12.11",
+    "goal": "Attic scans attachments and WhatsApp media before it keeps them, so its archive never stores malware as a normal file.",
+    "refs": ["app/Attic/archiver.ts `copyAttachment` (returns status `copied`)", "app/Attic/whatsapp-link.ts (media fetched with `downloadMediaMessage` and written)"],
+    "scope": [
+      "Scan in copyAttachment before returning `copied`; infected attachments get a new status and are kept in quarantine",
+      "Scan WhatsApp media right after download, before it is written",
+      "Show the status in the attachment UI"
+    ],
+    "accept": ["Tests with an EICAR attachment for both paths", "Existing archive tests pass"]
+  },
+  {
+    "key": "P12.12",
+    "goal": "ReviewOS scans what users push and upload: blobs in pushes, LFS objects, issue attachments, release assets and CI artifacts.",
+    "refs": [
+      "app/Actions/Git/scan.ts (pre-receive gate over git's quarantine; today scans added lines for secrets and skips binaries)",
+      "app/Actions/Git/lfs.ts",
+      "app/Actions/Attachment/upload.ts",
+      "app/Actions/Release/assets.ts",
+      "app/Actions/Artifact/store.ts"
+    ],
+    "scope": [
+      "Add a malware pass to the pre-receive gate over new blobs (including binaries), refusing the push with the path and signature",
+      "Scan LFS objects after verification, attachments after inspection, release assets while streaming, artifacts before storing",
+      "Per-repository setting to warn instead of refuse"
+    ],
+    "accept": [
+      "Tests: pushing EICAR is refused, uploading it as an attachment, release asset, LFS object or artifact is refused",
+      "Push performance on a large repository measured and recorded"
+    ]
+  },
+  {
+    "key": "P12.13",
+    "goal": "bughq scans uploaded symbol and source-map files, which are untrusted uploads from customer build systems.",
+    "refs": ["app/Symbols/upload.ts", "app/Symbols/store.ts"],
+    "scope": [
+      "Upgrade to the framework release with malware scanning",
+      "Make sure symbol uploads go through the scanned storage path, or scan explicitly where they do not"
+    ],
+    "accept": ["Test uploading EICAR as a symbol file is refused", "Existing symbol tests pass"]
+  },
+  {
+    "key": "P12.14",
+    "goal": "postline scans media uploaded for social posts before storing or forwarding it.",
+    "refs": ["app/Support/Social/uploads.ts", "app/Services/Social/QueueService.ts"],
+    "scope": [
+      "Upgrade to the framework release with malware scanning",
+      "Ensure media uploads use the scanned storage path, or scan explicitly before queueing"
+    ],
+    "accept": ["Test uploading EICAR as media is refused", "Existing upload tests pass"]
+  },
+  {
+    "key": "P12.15",
+    "goal": "Gate the rollout on live behaviour: the production services refuse malware, and every consumer repository has shipped its scanning change.",
+    "scope": [
+      "Re-run the post-deploy checks: an EICAR package publish to the registry is refused, EICAR mail is rejected, clean traffic flows",
+      "Confirm each app's change is released and deployed where it has a deployment",
+      "Record measured memory of zavd on each box against the old clamd figures"
+    ],
+    "notes": ["Report in generic terms in this public issue; specifics stay out of the repository"],
+    "accept": ["All checks pass and are recorded in the closing comment"]
+  },
+  {
+    "key": "P13.01",
+    "goal": "Qualify the whole program: every performance and memory target measured against clamd, every phase gate green, documentation complete, and release candidates ready for the maintainer to approve.",
+    "scope": [
+      "Collect the final numbers: private dirty idle and under load, reload delta, startup, throughput against clamd, INSTREAM p99, parity and false positives",
+      "Check that each phase gate issue is closed with evidence",
+      "Docs: engine README with side-by-side numbers, DESIGN.md updated with measured values replacing estimates, Stacks malware docs, Guardian docs",
+      "Prepare release candidates for zav, Guardian CLI and the desktop app"
+    ],
+    "out_of_scope": ["Cutting a 1.0 of anything: that needs the maintainer's explicit approval of the specific release"],
+    "notes": ["Needs the maintainer to review the candidates and decide what to release"],
+    "accept": [
+      "A qualification report linked from this issue with every target and its measured value",
+      "The maintainer has reviewed the candidates"
+    ]
+  }
+]

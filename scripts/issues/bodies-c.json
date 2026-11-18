@@ -1,0 +1,808 @@
+[
+  {
+    "key": "P6.01",
+    "goal": "A work-stealing scan runtime: one worker per physical core, each with a Chase-Lev deque, fed by a bounded injector queue so producers (sockets, directory walkers) slow down instead of piling up work in memory.",
+    "scope": [
+      "src/rt/deque.zig: Chase-Lev work-stealing deque (owner push/pop at the bottom, thieves steal from the top) with correct atomics for x86_64 and aarch64",
+      "src/rt/pool.zig: worker threads sized to physical cores by default (configurable), optional CPU pinning, idle parking with futex or ulock wake-ups",
+      "Bounded MPMC injector with capacity 4N; pushes report full so the caller can stop reading its source",
+      "Per-worker state padded to 128 bytes (Apple M-series line size) so counters and epoch slots never false-share",
+      "src/rt/walk.zig hook: a directory job splits subdirectories into child jobs only while its deque holds 64 or fewer items, otherwise it recurses depth-first inline",
+      "Per-worker stats block: jobs run, steals, parks, queue high-water"
+    ],
+    "out_of_scope": [
+      "The I/O layer and directory enumeration syscalls (P6.02)",
+      "The event loop that feeds sockets into the injector (P6.07)"
+    ],
+    "notes": [
+      "zig-crosswind's thread_pool.zig uses mutex-guarded ArrayLists and does not compile on 0.17-dev; do not reuse it",
+      "Backpressure is the memory bound for queued work: when the injector is full the daemon stops reading client sockets, so kernel flow control pushes back on clients",
+      "Whether SMT siblings help is measured in E2 and E6, not assumed: the prefilter is memory-level-parallelism bound and may benefit"
+    ],
+    "accept": [
+      "Stress test: 10 million tiny jobs across all cores with random steals finishes with every job run exactly once (ThreadSanitizer build clean on Linux)",
+      "With the injector full, a producer blocks or yields and resident memory stays flat while 1 million jobs are offered",
+      "Deque push/pop micro-benchmark recorded in bench/ and under 20 ns per uncontended operation on the reference machines",
+      "`zig build test` green on macOS and Linux"
+    ]
+  },
+  {
+    "key": "P6.02",
+    "goal": "An I/O layer that reads files with the fewest syscalls and no per-file mappings: pread into a reused buffer, io_uring batches for small files on Linux, and bulk attribute walking on macOS.",
+    "scope": [
+      "src/rt/io_small.zig: files up to 1 MiB read with one pread into the worker's reused 1 MiB buffer; larger files streamed in 256 KiB blocks with posix_fadvise(SEQUENTIAL)",
+      "Linux 5.19+: linked SQEs per small file (openat into a fixed-file slot with IORING_FILE_INDEX_ALLOC, statx, read, close), 32 to 64 files per io_uring_enter, built on std.os.linux.IoUring directly",
+      "Linux walking: getdents64 plus statx with STATX_MNT_ID so bind mounts and btrfs subvolumes are told apart",
+      "macOS walking: getattrlistbulk returning names and attributes in one call",
+      "Entries in a directory sorted by inode before reading",
+      "Page-cache hygiene option: FADV_DONTNEED after the scan on Linux, F_NOCACHE on macOS; off for the daemon, on for system scans",
+      "mmap used only when a parser needs random access across a span larger than the in-memory cap, with mappings cached and unmapped in batches"
+    ],
+    "out_of_scope": [
+      "Choosing the defaults from measurements (E6, P6.17)",
+      "fanotify-delivered descriptors (P7.15)"
+    ],
+    "notes": [
+      "munmap in a multithreaded process triggers TLB-shootdown IPIs on every core, which is why mmap is not the default read path",
+      "std.Io.Uring is large and churning on 0.17-dev; keep our own thin wrapper so API changes stay in one file",
+      "Fallback when io_uring is unavailable or restricted by seccomp: plain pread with threads, detected at start-up, logged once"
+    ],
+    "accept": [
+      "Walking and reading 1 million 4 KiB files produces identical file lists and bytes through the pread, io_uring and getattrlistbulk paths",
+      "strace or dtrace count shows at most 1.5 syscalls per small file amortised on the io_uring path",
+      "Running inside a container that blocks io_uring falls back to pread and still passes the suite",
+      "No mmap or munmap calls on the small-file path"
+    ]
+  },
+  {
+    "key": "P6.03",
+    "goal": "The single-pass scan pipeline: for each file, one read feeds the size-gated hashers, the stage-one prefilter, verification, normalisers and container children, with no allocation in the hot loop.",
+    "scope": [
+      "src/engine/scan.zig: open, scan-cache probe hook, first 4 KiB read, FTM type detection, need-map lookup, format parse, anchored pass, streaming pass over 256 KiB blocks in 64 KiB sub-blocks, finalize",
+      "Stage one probes into a candidate ring of 4096 entries drained at sub-block ends; stage two prefetches atom-table slots for the next 8 candidates; stage three runs the verify VM",
+      "Hashers update only the algorithms in the need mask on the same L1-resident sub-block",
+      "Normaliser taps (HTML, ASCII, JS) produce separate streams into their target partitions",
+      "Container children recurse through the same pipeline on the depth stack, under the limits from P5.01",
+      "Finalize: digests against hot and cold hash tiers, PE section hashes for sizes in the need set, deferred tier-D pass, touched logical signatures, FP check on detection",
+      "Result struct: verdict, signature id and rebuilt name, offset, container path, limit events"
+    ],
+    "out_of_scope": [
+      "Persisting results (P6.04)",
+      "Thread scheduling across files (P6.01)"
+    ],
+    "notes": [
+      "Budget exhaustion is reported as a limit event, never a silent clean",
+      "Everything a scan touches lives in the worker's Scratch; a counting-allocator test proves zero steady-state heap allocation",
+      "This is where the per-file overhead target is won or lost: at most 15 microseconds per small file excluding I/O"
+    ],
+    "accept": [
+      "EICAR plain, zipped, gzipped and inside MIME is detected with the correct container path",
+      "Counting-allocator test: zero heap allocations after warm-up across 10,000 mixed files",
+      "Scanning the same file twice gives byte-identical result structs",
+      "Raw PE throughput with the full database recorded in bench/, target at least 1 GB/s per core"
+    ]
+  },
+  {
+    "key": "P6.04",
+    "goal": "A persisted, memory-mapped scan cache so unchanged files are never read again, keyed on file metadata rather than content so a hit costs one stat.",
+    "scope": [
+      "src/engine/cache.zig: scan-cache.zavc with a 4 KiB header and 8-way buckets of 32-byte entries (256-byte buckets)",
+      "Entry: inode, metadata fingerprint (xxh3 of device or mount id, size, mtime_ns, ctime_ns, btime_ns), database version, verdict, flags, seq, crc",
+      "Bucket chosen by xxh3(device, inode); writers set seq odd, write, set seq even with release ordering; readers verify seq and crc and treat any mismatch as a miss",
+      "Only CLEAN verdicts are cached",
+      "Racy-timestamp rule: never cache a file whose mtime or ctime is within 2 seconds of now",
+      "Caching disabled on filesystems with coarse timestamps (FAT, HFS+, ext3) detected through statfs",
+      "Default 256K entries (8 MB file); periodic msync(MS_ASYNC) or sync_file_range so dirty pages stay transient"
+    ],
+    "out_of_scope": [
+      "Rescanning against only new signatures (P6.05)",
+      "Fault-injection measurements (E10, P6.18)"
+    ],
+    "notes": [
+      "clamd's clean cache is keyed on content MD5, so it must read every file to use it; ours skips the read entirely",
+      "A torn write after a crash is just a miss, never a false clean"
+    ],
+    "accept": [
+      "Warm rescan of an unchanged tree reads no file contents (verified by syscall trace)",
+      "Touching a file, replacing it with the same size and mtime but a new inode, or changing ctime all force a rescan",
+      "Killing the process mid-write leaves a cache that loads and produces no stale CLEAN result",
+      "Private-dirty contribution of the cache stays under 2 MB in steady state"
+    ]
+  },
+  {
+    "key": "P6.05",
+    "goal": "Delta rescan: a file cached clean under database version v can only become infected under v' through signatures added since v, so cache hits with an older version are rescanned against a small delta database instead of the full one.",
+    "scope": [
+      "Compiler emits delta(v to v') blobs containing only added signatures, kept for 7 days of versions",
+      "src/engine/cache.zig: on a hit with an older db version, scan against the matching delta (or chained deltas) and update the entry's version when clean",
+      "Fall back to a full scan when no delta chain covers the gap",
+      "Delta blobs use the same .zavdb container and loader as the full database"
+    ],
+    "out_of_scope": [
+      "Signature download and compile scheduling (P6.14)"
+    ],
+    "notes": [
+      "Removed signatures and new FP entries cannot turn clean into infected, so ignoring them is sound",
+      "Logical signatures whose subsignatures changed are treated as added in full"
+    ],
+    "accept": [
+      "Property test: for random corpora and random signature additions, delta rescan verdicts equal full-scan verdicts",
+      "After a daily update, a warm rescan of the benign corpus is at least 10x faster than a full rescan",
+      "Missing delta in the chain triggers a full scan, logged once"
+    ]
+  },
+  {
+    "key": "P6.06",
+    "goal": "Reload a new signature database under load without ever holding a second private copy: map the new blob, swap one pointer, and unmap the old one only when no scan still uses it.",
+    "scope": [
+      "src/rt/epoch.zig: global epoch counter and per-worker local epoch slots, cache-line padded",
+      "Reload: mmap new file, validate header and section table, build a new Engine struct of section pointers, atomic store with release ordering, bump the global epoch",
+      "Reclaimer unmaps the old mapping once every busy worker's epoch has advanced past the swap",
+      "Reload triggered by RELOAD command, signal, or a watch on the database directory",
+      "C ABI handles use coarse refcounts per scratch or stream handle, not per scan"
+    ],
+    "out_of_scope": [
+      "Fetching and compiling new databases (P6.14)",
+      "Measuring the reload delta (E5, P6.16)"
+    ],
+    "notes": [
+      "clamd's default concurrent reload doubles memory while two databases are loaded; ours adds roughly the 4 KB Engine struct",
+      "The page cache may briefly hold both blobs; those pages are clean and reclaimable"
+    ],
+    "accept": [
+      "100 reloads during a sustained INSTREAM load test produce no failed scans and no crashes",
+      "Private-dirty memory rises by no more than 2 MB during reload",
+      "A scan started before the swap finishes against the old database; one started after uses the new one"
+    ]
+  },
+  {
+    "key": "P6.07",
+    "goal": "One event loop per listener group serving Unix sockets and TCP with connection state machines, so thousands of idle or streaming clients cost little memory and no threads.",
+    "scope": [
+      "src/rt/ioloop.zig: epoll or io_uring on Linux, kqueue on macOS, behind one small interface",
+      "Accept, read and write readiness, timers for idle and command timeouts",
+      "Connection state machines with a 64 KB buffer each; scans become jobs on the injector",
+      "Stop reading from sockets while the injector is full (backpressure)",
+      "Graceful shutdown: stop accepting, drain in-flight scans, close"
+    ],
+    "out_of_scope": [
+      "The clamd command set (P6.08) and native protocol (P6.11)"
+    ],
+    "notes": [
+      "Maximum connections times 64 KB is the connection memory bound, for example 64 connections use 4 MB",
+      "Avoid std.Io abstractions that are still changing on 0.17-dev; keep the loop in one file"
+    ],
+    "accept": [
+      "10,000 idle connections held with resident memory growth under 1 GB and no extra threads",
+      "Echo test across Unix socket and TCP passes on Linux and macOS",
+      "Shutdown with in-flight requests completes them and exits cleanly"
+    ]
+  },
+  {
+    "key": "P6.08",
+    "goal": "zavd speaks the clamd protocol completely, so every existing clamd client (pantry-registry's ClamAvScanner, the mail server's clamav.zig, clamdscan) works against it unchanged.",
+    "refs": [
+      "https://docs.clamav.net/manual/Usage/Scanning.html",
+      "pantry-pm/pantry: packages/registry/src/malware-scanning.ts",
+      "mail-os/mail: packages/zig/src/antispam/clamav.zig"
+    ],
+    "scope": [
+      "src/daemon/clamd_proto.zig: PING, VERSION, VERSIONCOMMANDS, RELOAD, SHUTDOWN, STATS, SCAN, CONTSCAN, MULTISCAN, ALLMATCHSCAN, INSTREAM, FILDES, IDSESSION and END",
+      "Accept z (NUL-terminated), n (newline-terminated) and bare legacy command forms",
+      "INSTREAM framing: repeated 4-byte big-endian length plus bytes, ended by a zero-length chunk; StreamMaxLength enforced with `INSTREAM size limit exceeded. ERROR`",
+      "Replies exactly as clamd writes them: `stream: OK`, `stream: <Name> FOUND`, `<path>: <Name> FOUND`, error forms",
+      "IDSESSION pipelining with `<n>: ` prefixed replies in completion order",
+      "FILDES via SCM_RIGHTS on the Unix socket for zero-copy scans"
+    ],
+    "out_of_scope": [
+      "Incremental scanning while chunks arrive (P6.09)",
+      "clamd.conf parsing (P6.10)"
+    ],
+    "notes": [
+      "pantry-registry's client uses zINSTREAM, zVERSION and zPING and parses `stream: OK` and `stream: <sig> FOUND`; those byte forms are the compatibility contract",
+      "mail's client is TCP-only and sends 2048-byte chunks; both must work without code changes"
+    ],
+    "accept": [
+      "`clamdscan --stream` and `clamdscan --fdpass` against zavd report EICAR as FOUND and a clean file as OK",
+      "pantry-registry's malware-scanning tests pass pointed at zavd with no changes",
+      "mail's clamav.zig tests pass pointed at zavd with no changes",
+      "Golden transcript tests for every command in z, n and bare forms"
+    ]
+  },
+  {
+    "key": "P6.09",
+    "goal": "Scan INSTREAM data while it arrives, so the latency after the last byte is only finalize work, and spill large streams to an unlinked temp file instead of memory.",
+    "scope": [
+      "Resumable StreamScan job: workers consume the chunks that have arrived (prefilter, hashers, normalisers), then yield when no data is waiting; the event loop re-enqueues on new data",
+      "Keep up to 256 KiB in the connection buffer, then spill to O_TMPFILE on Linux or an unlinked temp file on macOS for container and end-of-file phases",
+      "Hashers for unknown-size streams run speculatively only while the byte count stays at or below the largest signature size for that table",
+      "Per-stream deadline and size limits"
+    ],
+    "out_of_scope": [
+      "Concurrency measurements (E14, P6.20)"
+    ],
+    "notes": [
+      "Spilled bytes live in the page cache, not in our anonymous memory",
+      "Target: p99 of 5 ms after the last byte for a 1 MB stream on an idle machine"
+    ],
+    "accept": [
+      "A 1 MB stream sent in 2048-byte chunks returns its verdict with p99 at or under 5 ms after the final chunk",
+      "A 1 GB stream is scanned with daemon private-dirty growth under 1 MB",
+      "Verdicts for streamed and file-scanned copies of the same corpus are identical"
+    ]
+  },
+  {
+    "key": "P6.10",
+    "goal": "zavd reads clamd.conf so it can replace clamd with the same configuration file, and has its own typed configuration for features clamd lacks.",
+    "refs": [
+      "https://docs.clamav.net/manual/Usage/Configuration.html"
+    ],
+    "scope": [
+      "src/daemon/clamd_conf.zig: Key Value line parser honouring LocalSocket, LocalSocketMode, TCPSocket, TCPAddr, MaxThreads, MaxConnectionQueueLength, StreamMaxLength, MaxScanSize, MaxFileSize, MaxRecursion, MaxFiles, MaxScanTime, ExcludePath, DatabaseDirectory, User, Foreground, LogFile",
+      "Unknown keys warned once, never fatal; unsupported keys listed in the docs",
+      "Native zavd config (TOML through zig-cli's parser) with environment overlays from zig-config: fail-closed policy, cache size, big-window budget, update feeds",
+      "`zav daemon --config` and `--clamd-conf` flags"
+    ],
+    "out_of_scope": [
+      "Signature feed credentials and schedules beyond configuration keys (P6.14)"
+    ],
+    "accept": [
+      "The clamd.conf from pantry-registry's deploy workflow loads with no errors and maps every limit",
+      "Environment overrides beat file values, tested",
+      "Invalid values produce a clear error naming the key and line"
+    ]
+  },
+  {
+    "key": "P6.11",
+    "goal": "A native multiplexed binary protocol, zavp/1, that carries many concurrent scans per connection with structured results the clamd text protocol cannot express.",
+    "scope": [
+      "src/daemon/native_proto.zig: 16-byte frame header {magic 'ZAV1', type u8, flags u8, reserved u16, req_id u32, len u32}",
+      "Requests: HELLO (capabilities, ABI and database version), SCAN_FD via SCM_RIGHTS, SCAN_PATH, STREAM_BEGIN, STREAM_DATA, STREAM_END, CANCEL, STATS, RELOAD",
+      "Replies out of order, matched by req_id; fixed 48-byte reply body {status, verdict, flags, depth, sig_id, db_ver, offset, size} plus name and optional container path",
+      "Zig client library in the same repository; protocol spec in docs/protocol.md that the TypeScript client is generated from"
+    ],
+    "out_of_scope": [
+      "In-process scanning through the C ABI (P6.12)"
+    ],
+    "accept": [
+      "1,000 interleaved requests on one connection all receive the right reply by req_id",
+      "CANCEL stops a long stream scan within 10 ms",
+      "Fuzzing the frame parser for 10 minutes finds no crash"
+    ]
+  },
+  {
+    "key": "P6.12",
+    "goal": "A stable, versioned C ABI so Bun (through bun:ffi), zig-waf, rpx and any other host can scan in process with zero copies and no callbacks on the hot path.",
+    "scope": [
+      "src/capi/zav.h and capi.zig: zav_abi_version, zav_engine_open/retain/release/reload, zav_scratch_new/free, zav_scan_buffer, zav_scan_fd, zav_scan_path, zav_stream_begin/write/end, zav_scan_all",
+      "Async: zav_queue_new returning a notify fd (eventfd on Linux, pipe on macOS), zav_submit, zav_poll",
+      "Every struct starts with a uint32 size field for forward compatibility",
+      "zav_result names point into the scratch buffer and stay valid until the next call on that scratch",
+      "Static and dynamic library artifacts for all release targets using the zig-starter lib steps"
+    ],
+    "out_of_scope": [
+      "The TypeScript package (P6.13)",
+      "zig-waf's operator that uses this from Zig directly (P9.08)"
+    ],
+    "notes": [
+      "One scratch per JS thread or Worker; engines are shared",
+      "zav_scan_buffer reads a TypedArray in place; for zav_submit the caller keeps the buffer alive until completion"
+    ],
+    "accept": [
+      "A C test program links the static library, scans EICAR and a clean buffer, and passes under AddressSanitizer",
+      "A struct built against a larger future size is accepted and a smaller older size still works",
+      "Header compiles as C99 and C++17 with -Wall -Werror"
+    ]
+  },
+  {
+    "key": "P6.13",
+    "goal": "@zig-utils/anti-virus: a TypeScript package that ships prebuilt zav libraries for every release target and exposes engine, scan and async queue APIs over bun:ffi.",
+    "scope": [
+      "ts/ package following the zig-starter binding template: find zig-out/lib first, then prebuilt/<platform>-<arch>/",
+      "API: openEngine(path), engine.scan(bytes | fd | path), engine.stream(), engine.queue() backed by zav_submit/zav_poll with the notify fd watched by Bun",
+      "Results as plain objects with verdict, signature name, offset, container path",
+      "Release workflow builds the six targets and publishes to npm and pantry",
+      "Typed client for the zavp/1 socket protocol for hosts that use the daemon instead of in-process scanning"
+    ],
+    "out_of_scope": [
+      "@stacksjs/malware drivers built on top (P8.01)"
+    ],
+    "notes": [
+      "No JSCallback on the scan path; completion comes through polling the queue when the notify fd is readable",
+      "Libraries are loaded once per process and engines shared across calls"
+    ],
+    "accept": [
+      "`bun add @zig-utils/anti-virus` in a clean project on macOS arm64 and Linux x64 scans EICAR without a Zig toolchain",
+      "1,000 concurrent queue submissions resolve without blocking the event loop (measured event-loop lag under 5 ms)",
+      "Types published and `tsc --noEmit` clean in a consumer project"
+    ]
+  },
+  {
+    "key": "P6.14",
+    "goal": "Keep signatures current without ever compiling inside the daemon: fetch ClamAV CVDs and diffs, compile out of process at low priority, swap atomically and reload.",
+    "refs": [
+      "https://docs.clamav.net/faq/faq-cvd.html"
+    ],
+    "scope": [
+      "src/update/: fetch main, daily and (ignored) bytecode CVDs with conditional requests, apply cdiffs where feasible, verify signatures",
+      "Generic User-Agent naming zav and its version, no personal or host details",
+      "Respect rate limits and backoff on 403 or 429; never hammer the mirrors",
+      "Run `zav compile` as a child process at nice 19 and idle I/O priority; write tmp, fsync, rename; then RELOAD",
+      "Optional MalwareBazaar import when a key is configured (off by default), Guardian rule feed, and hooks for CVE feeds (P7.11)",
+      "`zav update` CLI with --dry-run and status output"
+    ],
+    "out_of_scope": [
+      "CVE feed parsing (P7.11)",
+      "Serving prebuilt Guardian rules (P10.13)"
+    ],
+    "notes": [
+      "ClamAV databases are downloaded by each host for its own use and never re-hosted",
+      "MalwareBazaar terms limit free use to not-for-profit purposes; the docs must say so next to the option"
+    ],
+    "accept": [
+      "Fresh install fetches, compiles and starts scanning with the current database",
+      "Interrupted download or compile leaves the previous database serving",
+      "A daily update cycle keeps daemon private memory within the reload delta budget"
+    ]
+  },
+  {
+    "key": "P6.15",
+    "goal": "The benchmark harness that every performance claim rests on: pinned corpora, clamd as the baseline under identical limits, memory sampling, and machine-readable result files.",
+    "scope": [
+      "bench/ corpus manifests listing SHA-256 values (never samples): B1 benign filesystem, B2 large files, M1 malware (run only in an isolated environment), A1 adversarial, S1 mail streams",
+      "clamd driver: same ClamAV database version, same Max* limits and thread count, ConcurrentDatabaseReload on and off, bytecode on and off",
+      "Load generator speaking the clamd protocol to both daemons",
+      "Memory sampler at 10 Hz from /proc/<pid>/smaps_rollup (Private_Dirty, Anonymous, RSS, PSS) and macOS task_info phys_footprint, built on zig-benchmarks' external-process mode",
+      "Metrics: files/s, MB/s, CPU time, INSTREAM p50/p95/p99/p99.9, startup to first PING, reload peak, faults, syscalls per file, candidates per MB, hashed bytes skipped",
+      "JSON result files with hardware, commit, database version; `zav bench --compare a.json b.json`"
+    ],
+    "out_of_scope": [
+      "CI gating on the results (P6.22)"
+    ],
+    "notes": [
+      "Results are reported as medians of 5 runs with Mann-Whitney comparison",
+      "The malware corpus never enters CI artifacts or the repository"
+    ],
+    "accept": [
+      "One command runs B1 and S1 against zavd and clamd and writes comparable result files",
+      "Memory sampler output matches a manual smaps_rollup read within 1%",
+      "README documents how to reproduce every number"
+    ]
+  },
+  {
+    "key": "P6.16",
+    "goal": "E5: measure idle, nominal and peak private-dirty memory, and the reload delta, against the design targets.",
+    "scope": [
+      "Idle with 16 workers, nominal mixed load, and worst case with the big-window budget exhausted",
+      "Reload under sustained load, 100 times",
+      "Scan-cache dirty-page behaviour over 10 minutes of inserts",
+      "Report RSS and PSS separately from the gated private-dirty metric"
+    ],
+    "notes": [
+      "Targets: idle at or under 24 MB, nominal at or under 64 MB, reload delta at or under 2 MB",
+      "If a target fails: shrink the read buffer, change the per-depth slab policy, trim arenas sooner"
+    ],
+    "accept": [
+      "Result file committed under bench/results/ with the numbers for each target",
+      "Pass or fail stated against each target, and an issue opened for any miss"
+    ]
+  },
+  {
+    "key": "P6.17",
+    "goal": "E6: choose I/O defaults from measurements: pread against mmap against io_uring batches, munmap shootdown cost, and page-cache hygiene effects.",
+    "scope": [
+      "1 million 4 KiB files and the B2 large-file set",
+      "munmap cost at 16 threads",
+      "FADV_DONTNEED and F_NOCACHE effects on later system performance"
+    ],
+    "notes": [
+      "Pass line: io_uring at least 2x fewer microseconds per small file than pread with threads; otherwise stay with pread"
+    ],
+    "accept": [
+      "Result file committed with per-path numbers",
+      "Defaults in src/rt/io_small.zig set from the results, with the reason in a code comment"
+    ]
+  },
+  {
+    "key": "P6.18",
+    "goal": "E10: prove the scan cache never returns a stale CLEAN and measure the warm-rescan speedup, including delta rescan correctness.",
+    "scope": [
+      "Fault injection: racy timestamps, inode reuse, coarse-timestamp filesystems, crashes during writes, clock jumps",
+      "Warm full rescan against cold rescan on B1",
+      "Delta rescan against full scan after simulated daily updates"
+    ],
+    "notes": [
+      "Pass line: zero stale CLEAN results, warm rescan at least 20x faster; otherwise narrow caching to filesystems proven safe"
+    ],
+    "accept": [
+      "Fault-injection suite committed and run in CI",
+      "Result file with speedup numbers committed"
+    ]
+  },
+  {
+    "key": "P6.19",
+    "goal": "E12: find out whether huge pages for the hot database region, and 128-byte layouts on Apple silicon, are worth keeping.",
+    "scope": [
+      "Linux file-backed transparent huge pages with MADV_HUGEPAGE on the 2 MiB-aligned hot region, where the kernel and filesystem allow it",
+      "Optional mlock of the hot region under memory pressure",
+      "128-byte against 64-byte bucket layouts on M-series"
+    ],
+    "notes": [
+      "Adopt a change only with at least a 5% throughput gain and no private-dirty increase"
+    ],
+    "accept": [
+      "Result file committed; the chosen settings documented in docs/DESIGN.md"
+    ]
+  },
+  {
+    "key": "P6.20",
+    "goal": "E14: hold 1,000 concurrent INSTREAM connections with bounded memory and latency, measured side by side with clamd.",
+    "scope": [
+      "1,000 concurrent 1 MB streams and 256 concurrent streams at mixed sizes",
+      "Measure p99 latency, failures, private-dirty memory, and spill behaviour for both daemons"
+    ],
+    "notes": [
+      "Target: 256 concurrent streams keep p99 within 4x the single-stream figure with no failures"
+    ],
+    "accept": [
+      "Result file committed comparing zavd and clamd",
+      "No failed scans at 1,000 connections; any limit hit returns the clamd-compatible error, not a dropped connection"
+    ]
+  },
+  {
+    "key": "P6.21",
+    "goal": "E9: show that zav detects what clamd detects on supported types and adds no false positives, and turn every gap into a prioritised issue.",
+    "scope": [
+      "Run M1 through zavd and through clamd with bytecode on and off; diff detection sets",
+      "Run B1 through zavd; any detection is a false positive to explain",
+      "Group misses by cause: unsupported format, normaliser difference, signature semantics, bytecode-only"
+    ],
+    "notes": [
+      "Pass line: at least 99.5% parity with clamd --bytecode=no on supported types and zero new false positives",
+      "The coverage report from the compiler explains signature-level gaps"
+    ],
+    "accept": [
+      "Parity report committed with counts and the top missing families",
+      "An issue opened for each miss cluster larger than 0.05% of detections"
+    ]
+  },
+  {
+    "key": "P6.22",
+    "goal": "Performance and memory regressions fail CI: micro-kernel benchmarks on every pull request and a nightly macro run against the gates.",
+    "scope": [
+      "Per-PR job: prefilter, verify VM, hashers and decoders through zig-benchmarks with a 10% threshold, on a dedicated runner with fixed frequency",
+      "Nightly job: B1 subset, S1 and A1; fail on a 5% MB/s regression (median of 5, Mann-Whitney p under 0.05), private dirty over 24 MB idle or 64 MB nominal, reload delta over 2 MB, any new false positive, parity under 99.5%, any adversarial case over its bound",
+      "Results archived as workflow artifacts and summarised in the job output"
+    ],
+    "notes": [
+      "The dedicated runner is a maintainer resource; document its setup without hostnames"
+    ],
+    "accept": [
+      "A deliberately slowed kernel fails the per-PR job",
+      "A deliberate 100 MB leak fails the nightly memory gate"
+    ]
+  },
+  {
+    "key": "P6.23",
+    "goal": "Release zav 0.1: the daemon, the C ABI libraries and the TypeScript package, with the measured numbers in the README.",
+    "scope": [
+      "Tag and publish through the zig-starter release workflow: binaries and libraries for six targets, npm and pantry packages",
+      "README with side-by-side numbers against clamd from the committed result files",
+      "docs/ for daemon configuration, protocol, C ABI and migration from clamd"
+    ],
+    "accept": [
+      "Clean install on Linux replaces clamd by pointing an existing client at zavd's socket",
+      "Every gate in P6.22 is green on the release commit",
+      "Release notes list supported and unsupported signature types from the coverage report"
+    ]
+  },
+  {
+    "key": "P7.01",
+    "goal": "The common model for host findings, inspired by linux-guardian but typed: severity and category enums, remediation text, CVE links, a 0 to 100 score, server context and suppressions.",
+    "refs": [
+      "https://github.com/brammittendorff/linux-guardian"
+    ],
+    "scope": [
+      "src/host/finding.zig: {severity enum, category enum, title, description, remediation, cve, details} with JSON output",
+      "Score starts at 100 and subtracts per severity; labels Excellent to Critical",
+      "Fast and deep tiers, with each check declaring its tier and privilege needs (none, partial, root)",
+      "Server context detection (which services run) that downgrades findings servers explain, for example no disk encryption on a VM",
+      "Suppression config file by check id and path pattern, with a reason field",
+      "Exit code reflects the highest severity"
+    ],
+    "notes": [
+      "linux-guardian used free-form strings for severity and category; enums keep filters and the dashboard honest"
+    ],
+    "accept": [
+      "JSON schema for findings committed and validated in tests",
+      "Suppressions and server-context downgrades covered by unit tests"
+    ]
+  },
+  {
+    "key": "P7.02",
+    "goal": "Linux process checks read straight from /proc, never from ps, so a userland rootkit that patches tools cannot hide from them.",
+    "scope": [
+      "src/host/linux/process.zig: cryptominer detection by tokenised process name, command line and pool or stratum tokens (not substrings), plus deleted-executable and CPU-share checks",
+      "Executables running from /tmp, /var/tmp, /dev/shm and hidden dot directories; orphaned daemons from those paths",
+      "Hidden processes: compare /proc enumeration with getdents results and kill(pid, 0) probing, with a re-check before reporting",
+      "Fileless code: memfd-backed executables and anonymous executable mappings",
+      "Executables scanned through the engine when not owned by a package"
+    ],
+    "notes": [
+      "linux-guardian matched substrings such as 'monero' and allowlisted 'sh', which matched sshd and bash; token matching and package ownership replace that",
+      "Its CPU check averaged over process lifetime; use a short sampling window instead"
+    ],
+    "accept": [
+      "A test harness running a renamed miner-like process from /dev/shm is reported",
+      "No findings on clean Debian and Ubuntu CI images in fast tier",
+      "No subprocess is spawned by the checks (verified in tests)"
+    ]
+  },
+  {
+    "key": "P7.03",
+    "goal": "Network checks that find reverse shells and unexpected listeners from /proc/net and process file descriptors instead of shelling out to ss.",
+    "scope": [
+      "src/host/linux/network.zig: parse /proc/net/tcp, tcp6, udp, udp6 and unix; map sockets to processes through /proc/<pid>/fd",
+      "Reverse-shell patterns: shells or interpreters whose stdin, stdout or stderr is a network socket; /dev/tcp usage; interactive interpreters with -c or -e connected outward",
+      "Listeners on unexpected ports compared against server context",
+      "Cross-check socket inventories from netlink sock_diag against /proc to spot hidden sockets"
+    ],
+    "notes": [
+      "linux-guardian flagged any listener above port 50000 and any binary named nc; judge by what the process is connected to instead"
+    ],
+    "accept": [
+      "A test reverse shell over a loopback socket is detected",
+      "Normal services (sshd, the Stacks app, the proxy) produce no findings with server context",
+      "No subprocess spawned"
+    ]
+  },
+  {
+    "key": "P7.04",
+    "goal": "Kernel integrity checks: loaded modules compared across independent views, taint flags, signatures, eBPF programs and the bootloader.",
+    "scope": [
+      "src/host/linux/kernel.zig: /proc/modules against /sys/module, module files outside /lib/modules, taint flags from /proc/sys/kernel/tainted",
+      "Unsigned modules when Secure Boot is on, read from module signature info in the ELF, not modinfo",
+      "Suspicious module names and parameters as tokens",
+      "eBPF programs through bpf(BPF_PROG_GET_NEXT_ID) and program info, flagging kprobe and tracepoint programs not owned by known tooling",
+      "Bootloader config and kernel command line changes against the last baseline"
+    ],
+    "notes": [
+      "linux-guardian compared lsmod with /proc/modules, which reads the same source twice; /sys/module is the independent view"
+    ],
+    "accept": [
+      "Fixtures with a tainted kernel and an out-of-tree module path produce findings",
+      "Runs without root with reduced coverage that is reported, not silently skipped"
+    ]
+  },
+  {
+    "key": "P7.05",
+    "goal": "Persistence and access checks: scheduled jobs, systemd units, SSH keys and configuration, brute-force traces and preload hijacks.",
+    "scope": [
+      "src/host/linux/persistence.zig: cron (system and user), at jobs, systemd units and timers created or changed since baseline, unit security settings",
+      "SSH: authorized_keys changes against baseline, sshd_config weaknesses (password auth, root login), brute-force patterns in auth logs or the journal",
+      "LD_PRELOAD in process environments and /etc/ld.so.preload",
+      "Shell profile and rc file hooks that download or execute remote content",
+      "Credential exposure: world-readable keys, tokens in environment files"
+    ],
+    "accept": [
+      "Fixtures for each persistence kind produce findings with remediation text",
+      "A baseline run followed by an added authorized key reports exactly that key"
+    ]
+  },
+  {
+    "key": "P7.06",
+    "goal": "Privilege checks that report new or changed SUID and SGID binaries and unexpected file capabilities.",
+    "scope": [
+      "src/host/linux/privilege.zig: walk system paths for SUID and SGID bits, compare against package ownership and the last baseline",
+      "File capabilities from the security.capability xattr",
+      "Process capabilities for running non-root processes with dangerous sets"
+    ],
+    "accept": [
+      "A test SUID binary in /tmp or a home directory is reported as critical",
+      "Package-owned SUID binaries produce no findings"
+    ]
+  },
+  {
+    "key": "P7.07",
+    "goal": "Hardening checks that report weak configuration: firewall, kernel sysctls, mandatory access control, disk encryption, container isolation and pending updates.",
+    "scope": [
+      "src/host/linux/hardening.zig: nftables or iptables state via netlink, key sysctls (kptr_restrict, dmesg_restrict, unprivileged_bpf_disabled, ptrace_scope, rp_filter)",
+      "AppArmor or SELinux status",
+      "Disk encryption detection, downgraded on servers by context",
+      "Container checks: privileged containers, host mounts, Docker socket exposure",
+      "Pending security updates from package metadata"
+    ],
+    "accept": [
+      "Each check has a fixture or test VM result in CI",
+      "Server context downgrades are applied and visible in JSON output"
+    ]
+  },
+  {
+    "key": "P7.08",
+    "goal": "Use package managers as the source of truth for which files belong on a system, replacing hard-coded allowlists, and verify package file integrity.",
+    "scope": [
+      "src/host/linux/packages.zig: read dpkg status and md5sums, the rpm database (SQLite in rpm 4.16 and newer), and apk installed",
+      "Ownership lookup for any path, cached per scan",
+      "Integrity verification of owned files against package checksums (deep tier)"
+    ],
+    "accept": [
+      "Ownership answers match dpkg -S and rpm -qf on CI images for a sample of 1,000 paths",
+      "A modified package-owned binary is reported in deep tier"
+    ]
+  },
+  {
+    "key": "P7.09",
+    "goal": "macOS host checks for the persistence and tampering patterns that matter on developer machines.",
+    "scope": [
+      "src/host/macos/: LaunchAgents and LaunchDaemons in user and system locations, login items, configuration profiles",
+      "Unsigned or ad-hoc signed executables in user Library paths, checked through the code-signing APIs",
+      "Downloaded executables missing the com.apple.quarantine xattr",
+      "Executables scanned through the engine"
+    ],
+    "notes": [
+      "Some locations need Full Disk Access; report reduced coverage when it is missing"
+    ],
+    "accept": [
+      "A test LaunchAgent pointing at a script in /tmp is reported",
+      "Clean macOS CI runner produces no high or critical findings"
+    ]
+  },
+  {
+    "key": "P7.10",
+    "goal": "Host scans reuse the engine's scan cache so repeated runs skip unchanged files.",
+    "scope": [
+      "Host file checks consult and update the persisted scan cache keyed on device, inode, size and timestamps",
+      "Separate verdict bits for host-check results where they differ from malware verdicts"
+    ],
+    "accept": [
+      "Second deep host scan on an unchanged system reads at least 95% fewer file bytes than the first"
+    ]
+  },
+  {
+    "key": "P7.11",
+    "goal": "Fetch the vulnerability data that drives CVE matching: CISA's Known Exploited Vulnerabilities catalog, NVD through API 2.0 incrementally, and OSV for package ecosystems.",
+    "refs": [
+      "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      "https://nvd.nist.gov/developers/vulnerabilities",
+      "https://google.github.io/osv.dev/data/"
+    ],
+    "scope": [
+      "src/cve/feeds.zig: KEV JSON feed; NVD API 2.0 with lastModStartDate and lastModEndDate windows and an optional API key; OSV bulk exports per ecosystem",
+      "Respect NVD rate limits (lower without a key) with backoff",
+      "Store raw feeds with fetch timestamps for reproducible index builds",
+      "linux-guardian's CVE cache used SQLite; we compile to the .zavcve index instead (P7.12)"
+    ],
+    "accept": [
+      "Initial NVD sync and incremental updates both complete and resume after interruption",
+      "Feed parsing covered by recorded fixtures"
+    ]
+  },
+  {
+    "key": "P7.12",
+    "goal": "Compile vulnerability data into a memory-mapped .zavcve index that answers package and version queries without parsing at query time.",
+    "scope": [
+      "src/cve/index.zig: sections for (ecosystem, name hash) to range lists, canonical version tokens per scheme (semver, dpkg, rpm, apk, PEP 440, Maven, Go), CPE vendor and product index, CVE metadata (CVSS, KEV flag, due date, ransomware use)",
+      "Same signed container and raw mmap loader as .zavdb",
+      "Query API used by the CLI and the C ABI"
+    ],
+    "notes": [
+      "Estimated 50 to 150 MB mapped and clean; never parsed into the heap"
+    ],
+    "accept": [
+      "Version comparison tests per scheme including epochs, tildes and pre-releases",
+      "Known vulnerable versions from fixtures match; patched versions do not",
+      "Index load under 10 ms on a warm cache"
+    ]
+  },
+  {
+    "key": "P7.13",
+    "goal": "Inventory everything installed that can be vulnerable: system packages, language lockfiles, Go binaries, macOS apps and exposed services.",
+    "scope": [
+      "src/cve/inventory/: dpkg, rpm, apk, Homebrew Cellar, pantry installs",
+      "Lockfiles: bun.lock, package-lock, pnpm-lock, pantry.lock, Python dist-info, Cargo.lock, Go buildinfo embedded in binaries",
+      "macOS app bundle Info.plist versions",
+      "Service banners from listening local services where safe",
+      "Match inventory against the .zavcve index; KEV hits are critical"
+    ],
+    "accept": [
+      "A fixture Stacks app with a known vulnerable dependency in bun.lock is reported with the CVE id",
+      "Inventory of a CI image matches the package manager's own list"
+    ]
+  },
+  {
+    "key": "P7.14",
+    "goal": "`zav audit` and `zav host` expose CVE matching and host checks on the command line with JSON output and severity-based exit codes.",
+    "scope": [
+      "src/cli/: `zav host [--deep] [--json] [--min-severity] [--category]`, `zav audit [path...] [--json]`",
+      "Human-readable output grouped by severity with remediation lines",
+      "Exit codes: 0 clean, distinct codes per highest severity"
+    ],
+    "accept": [
+      "JSON output validates against the committed schema",
+      "Exit codes covered by tests"
+    ]
+  },
+  {
+    "key": "P7.15",
+    "goal": "On-access protection on Linux with fanotify: block executions of infected files and scan files when they are closed after writing, while cached clean files cost almost nothing.",
+    "refs": [
+      "https://man7.org/linux/man-pages/man7/fanotify.7.html"
+    ],
+    "scope": [
+      "src/watch/fanotify.zig: fanotify_init with FAN_CLASS_CONTENT, FAN_MARK_FILESYSTEM or per-mount marks, FAN_OPEN_EXEC_PERM (blocking) and FAN_CLOSE_WRITE (async)",
+      "Scan through the descriptor delivered in the event, so there is no reopen and no race",
+      "Clean verdicts add an ignore mark on the inode with FAN_MARK_EVICTABLE where supported, giving an in-kernel clean cache that the kernel clears on modification",
+      "Deadline per permission event (default 200 ms) with a configurable fail-open or fail-closed policy, logged on timeout",
+      "Exclude zavd's own processes from verdict loops"
+    ],
+    "accept": [
+      "Executing EICAR from a marked mount is denied; a clean binary runs",
+      "Writing a file triggers an async scan after close",
+      "Deadline expiry follows the configured policy in tests"
+    ]
+  },
+  {
+    "key": "P7.16",
+    "goal": "File watching on macOS with FSEvents, scanning changed files after the fact without special entitlements.",
+    "refs": [
+      "craft-native/craft: packages/zig/src/fs_watch.zig"
+    ],
+    "scope": [
+      "src/watch/fsevents.zig: FSEventStream with file-level events, coalescing, and per-path debounce",
+      "Scans queued through the pool, results reported through the C ABI queue",
+      "Exclude paths from configuration"
+    ],
+    "accept": [
+      "EICAR written to a watched folder is detected within 2 seconds",
+      "Bulk writes of 10,000 files do not grow memory beyond the queue bound"
+    ]
+  },
+  {
+    "key": "P7.17",
+    "goal": "Blocking protection on macOS through Endpoint Security, in a separately signed helper, once Apple grants the entitlement.",
+    "refs": [
+      "https://developer.apple.com/documentation/endpointsecurity"
+    ],
+    "scope": [
+      "src/watch/endpoint_security.zig: ES client for AUTH_EXEC, AUTH_OPEN and NOTIFY_CLOSE",
+      "Answer before es_message_t deadline; use es_respond_auth_result with caching for clean files; mute own process and excluded paths",
+      "Helper packaged as a system extension, signed separately"
+    ],
+    "notes": [
+      "Needs the com.apple.developer.endpoint-security.client entitlement, which Apple must approve; the maintainer applies for it",
+      "Without it, macOS stays on FSEvents (detection after the fact)"
+    ],
+    "accept": [
+      "With the entitlement, executing EICAR is denied and a clean binary runs",
+      "No missed deadlines over a 1-hour soak with normal developer workload"
+    ]
+  },
+  {
+    "key": "P7.18",
+    "goal": "E11: measure the open latency fanotify protection adds, with and without ignore marks.",
+    "scope": [
+      "Microbenchmark of open and exec on cached clean files, uncached files and written files",
+      "Permission-event latency distribution under a scan load"
+    ],
+    "notes": [
+      "Targets: cached clean files add 20 microseconds or less; uncached p99 within scan time plus 100 microseconds"
+    ],
+    "accept": [
+      "Result file committed with distributions",
+      "Deadline policy tuned from the numbers"
+    ]
+  },
+  {
+    "key": "P7.19",
+    "goal": "Phase gate: host checks, CVE automation and real-time watching verified end to end on Linux and macOS.",
+    "scope": [
+      "Run the full host and audit suites on Debian, Ubuntu and a Fedora image, and on macOS",
+      "Verify no check spawns a subprocess",
+      "Confirm suppressions, server context and JSON schema"
+    ],
+    "accept": [
+      "All P7 acceptance criteria green in CI",
+      "A planted miner, reverse shell, SUID binary, cron job and vulnerable lockfile are all reported in one `zav host --deep` plus `zav audit` run"
+    ]
+  }
+]

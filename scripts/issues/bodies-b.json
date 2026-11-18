@@ -1,0 +1,1056 @@
+[
+ {
+  "key": "P4.01",
+  "goal": "One intermediate representation for every hex body ClamAV, YARA and Guardian rules can express, so atom selection, the verify VM and the compiler share a single model of a subsignature.",
+  "refs": [
+   "https://docs.clamav.net/manual/Signatures/BodySignatureFormat.html",
+   "src/compile/ir.zig"
+  ],
+  "scope": [
+   "src/compile/ir.zig: Subsig { parts, mods, target, offset } where a part is a list of ops LIT, MASKED (value/mask byte pairs for ?a, a? and ??), ALT, NALT (!(..)), GAPF (fixed {n}) and a PART_END carrying the min/max window for {n-m}, {-n}, {n-}, * and [n-m]",
+   "Modifiers nocase, wide, ascii, fullword (::i ::w ::a ::f) and boundary anchors (B) and (L)",
+   "Compile-time expansion: wide becomes 00-interleaved literals; small fixed-width alternations expand into literal variants; nocase expands to at most 16 variants and otherwise marks the subsig for a folded partition",
+   "Hex body tokenizer with precise error positions for every rejected construct",
+   "Every rejection is recorded in the coverage report with a reason code"
+  ],
+  "out_of_scope": [
+   "Offsets and target types in .ndb lines (P4.02)",
+   "Atom selection (P4.03)",
+   "Executing the IR (P4.06)"
+  ],
+  "notes": [
+   "The IR is the contract between the compiler and src/match/verify_vm.zig: keep ops small and fixed-size so programs serialise into the SUBSIG_PROG section with u32 offsets",
+   "Reproduce ClamAV semantics exactly: each {n-m} part matches independently, * spans the whole remaining input, ::f uses ClamAV's word-boundary definition"
+  ],
+  "accept": [
+   "Round-trip test: parse then print reproduces every body in the E0 census set, modulo whitespace",
+   "Fuzz target for the tokenizer runs 10M iterations without a crash or unbounded allocation",
+   "Every grammar feature in the ClamAV body format doc has a unit test"
+  ]
+ },
+ {
+  "key": "P4.02",
+  "goal": "Parse .ndb extended signatures, including every offset form and target type, into the IR so they can be partitioned by file type and anchored where possible.",
+  "refs": [
+   "https://docs.clamav.net/manual/Signatures/ExtendedSignatures.html",
+   "src/compile/parse_ndb.zig"
+  ],
+  "scope": [
+   "src/compile/parse_ndb.zig: Name:TargetType:Offset:HexSignature[:min_flevel[:max_flevel]]",
+   "Offset kinds: * (any), absolute n, EP+n / EP-n, EOF-n, Sx+n (section-relative), SL+n, SE (section end), VI, and the n,maxshift form",
+   "Target types 0 to 14 mapped to partitions (any, PE, OLE2, normalised HTML, mail, graphics, ELF, normalised ASCII, Mach-O, PDF, flash, java, and the internal ones)",
+   "Functionality-level filtering against the engine's declared level, recorded in the coverage report",
+   ".ign2 drops applied at compile time"
+  ],
+  "out_of_scope": [
+   "Logical signatures (P4.08)",
+   "Evaluating offsets at scan time (P4.06, P4.07)"
+  ],
+  "notes": [
+   "Store offset kind as off_kind u8, off_a i32, off_shift u32 in the subsig program header so anchored lookups need no reparsing",
+   "Unknown target types are rejected with a reason, never silently mapped to type 0"
+  ],
+  "accept": [
+   "Parses every line of the current daily and main .ndb files, with rejections fully accounted for in the coverage report",
+   "Unit tests for each offset kind and the maxshift form",
+   "Counts per target type match the E0 census"
+  ]
+ },
+ {
+  "key": "P4.03",
+  "goal": "Choose, for every subsignature, the rarest 4-byte window as its atom, using a 4-gram frequency model built from a benign corpus, and classify it into tiers A to D. Candidate rate, not signature count, decides scan speed.",
+  "refs": [
+   "src/compile/atoms.zig",
+   "docs/DESIGN.md (atom selection and tiers)"
+  ],
+  "scope": [
+   "Offline tool that builds the 4-gram frequency model from the benign corpus manifest and ships it with the compiler",
+   "src/compile/atoms.zig: enumerate fixed runs of 4 or more bytes and bounded expansions of small ALT/MASKED groups; score by estimated benign frequency; penalise 00, FF, CC and 90 runs, padding, common prologues and MZ/PE headers",
+   "Tiers by the rarest fixed run length L: A (L >= 11, stride 8), B (7 to 10, stride 4), C (4 to 6, stride 1), D (L <= 3)",
+   "Per-subsig record of atom bytes, gram offset inside the anchor, and tier",
+   "Histogram output feeding E3"
+  ],
+  "out_of_scope": [
+   "Building the Bloom filters (P4.04)",
+   "Tier-D deferral (P4.10)"
+  ],
+  "notes": [
+   "ClamAV's Aho-Corasick uses a 2 to 3 byte prefix depth, which is why its candidate rate is high; rare atoms are the main lever",
+   "A sampled stride s is safe only when every sampled position lands inside the anchor: insert all s 4-grams at offsets 0..s-1 of the anchor",
+   "[E] target: at least 10x fewer candidates per MB than prefix selection on the benign corpus"
+  ],
+  "accept": [
+   "Every in-scope subsig gets an atom or an explicit tier-D classification",
+   "Tier histogram for the full database is written to the coverage report",
+   "Deterministic output: the same inputs produce a byte-identical atom table"
+  ]
+ },
+ {
+  "key": "P4.04",
+  "goal": "Serialise per-partition split-block Bloom prefilters and atom hash tables into the hot region of the .zavdb, so the daemon maps them clean and never builds them at runtime.",
+  "refs": [
+   "zig-utils/zig-regex literals module (P2.08)",
+   "src/match/sbbf.zig",
+   "src/match/atom_table.zig"
+  ],
+  "scope": [
+   "PREFILTER[p] section: 64-byte header (q=4, stride, sbbf_blocks_log2, hash_seed, short filter offset) followed by 2^B blocks of 32 bytes (8 u32 words), plus a separate smaller SBBF for tier C",
+   "ATOM_TABLE[p]: linear probing at 50% load, 8-byte slots {atom u32, first u32} pointing at 8-byte entries {subsig u24, gram_off u8, flags u16, anchor_len u8}",
+   "Each partition k >= 1 includes type-0 atoms so each stream is scanned once",
+   "Sizing for about 16 bits per key, 32-byte blocks aligned to 64",
+   "Reuse the SBBF builder from zig-regex literals instead of a second copy"
+  ],
+  "out_of_scope": [
+   "Probe kernels (P4.05)",
+   "The full blob container format (P3.06)"
+  ],
+  "notes": [
+   "Expected false-positive rate about 0.1 to 0.3% at 16 bits per key; confirm in E2",
+   "Type-0 duplication costs a few MB of clean file pages [E]; record the real number",
+   "All offsets are u32 relative to their section; nothing is relocated at load"
+  ],
+  "accept": [
+   "Compile the full database; per-partition filter sizes and load factors are printed by zav info",
+   "Every atom inserted is found by a reference scalar probe (no false negatives) in a property test",
+   "Measured false-positive rate on random data within 2x of the theoretical value"
+  ]
+ },
+ {
+  "key": "P4.05",
+  "goal": "The stage-one scan loop: sampled 4-byte probes into the partition's SBBF with no loop-carried dependency, SIMD hashing of 16 positions at once, and a branch-free candidate ring.",
+  "refs": [
+   "src/match/sbbf.zig",
+   "src/simd/arch.zig",
+   "src/simd/shuffle.zig"
+  ],
+  "scope": [
+   "Per position: a = load_u32(p+i); h = (a ^ seed) * K64; block = h >> (64 - B); 8 bit positions from h times 8 odd constants; test all 8 words with one vptest (AVX2) or cmtst plus umaxv (NEON)",
+   "Vectorise the hashing (one 32-byte load, comptime @shuffle masks, @Vector(16,u32) multiply); keep probes scalar",
+   "Branch-free append into a 4096-entry u32 candidate ring, drained when full or at the end of each 64 KiB sub-block",
+   "Stage two: prefetch ATOM_TABLE slots for the next 8 candidates, then a u64-masked anchor compare",
+   "Kernels built per CPU variant (x86-64-v2, v3, aarch64) and selected at runtime"
+  ],
+  "out_of_scope": [
+   "Verification beyond the anchor compare (P4.06)",
+   "Choosing between prefilter designs (P4.16)"
+  ],
+  "notes": [
+   "No gathers: Intel parts with the GDS mitigation make them slow",
+   "[E] per-byte cost: tier A about 0.6 cycles, tier B about 1.2, tier C about 4.5; PE partition with A and B only about 2 cycles per byte, roughly 2 GB/s per core",
+   "Zig has no runtime-index byte shuffle builtin; use inline asm (vpshufb / tbl) where a runtime shuffle is needed"
+  ],
+  "accept": [
+   "Scalar reference and SIMD kernels return identical candidate sets on 1 GB of random and benign input",
+   "Micro-benchmark per tier recorded for x86_64 and aarch64 in bench results",
+   "Zero allocations inside the loop, asserted by a counting allocator"
+  ]
+ },
+ {
+  "key": "P4.06",
+  "goal": "A small verify VM that confirms a candidate against the full subsignature, searching parts outward from the anchor within their gap windows, with hard step budgets so no input can make it slow.",
+  "refs": [
+   "src/match/verify_vm.zig",
+   "https://docs.clamav.net/manual/Signatures/BodySignatureFormat.html"
+  ],
+  "scope": [
+   "Executes SUBSIG_PROG: LIT, MASKED, ALT, NALT, GAPF, PART_END min/max, BOUND",
+   "Start at the anchor part; search earlier parts backwards and later parts forwards inside [min,max], using SIMD memchr on the rarest byte then a masked compare",
+   "Backtracking over candidate positions with a per-subsig step budget (default 4096) and a per-file verify budget",
+   "Budget exhaustion records limit metadata on the result (Heuristics.Limits.Exceeded style), never a silent pass",
+   "Offset-kind checks (ABS, EP, EOF, section) evaluated against the file context before running the program"
+  ],
+  "out_of_scope": [
+   "Logical-signature evaluation (P4.09)",
+   "PCRE and byte-compare subsigs (P4.11, P4.12)"
+  ],
+  "notes": [
+   "Reproduce exactly: * across the whole file, independent {n-m} parts, the maxshift window, the ::f boundary rule, and count and offset ordering rules",
+   "Programs are read straight from the mapped blob; the VM keeps state in the worker scratch only"
+  ],
+  "accept": [
+   "Matches libclamav on a synthetic signature per grammar feature (checked with sigtool --test-sigs)",
+   "Adversarial inputs never exceed the configured budget, and the limit flag is set when they hit it",
+   "Fuzz target over random programs and inputs runs clean for 10M iterations"
+  ]
+ },
+ {
+  "key": "P4.07",
+  "goal": "Signatures pinned to a fixed offset (EP+n, EOF-n, Sx+n, absolute) are checked with a direct lookup at that offset instead of being scanned for.",
+  "refs": [
+   "src/match/anchored.zig"
+  ],
+  "scope": [
+   "ANCHORED_INDEX[p]: groups by (off_kind, off_a); each group is a small hash table keyed by the 4 bytes at that offset, mapping to subsig lists",
+   "Groups with non-zero off_shift get a short window scan of off_shift plus length bytes",
+   "Runs once per file after format parsing provides EP, sections and size",
+   "Signatures that are anchored skip the stream prefilter entirely"
+  ],
+  "out_of_scope": [
+   "PE and ELF parsing that supplies EP and sections (P5.05, P5.06)"
+  ],
+  "notes": [
+   "Cost is one lookup per distinct group present in the partition, independent of signature count",
+   "Anchored tier-D subsigs are handled here rather than by the 2 to 3 byte gram bitmaps",
+   "Until P5.05 and P5.06 land, test with synthetic entry points and sections; the real PE and ELF sample differential checks run in the P5.20 gate."
+  ],
+  "accept": [
+   "Every anchored signature in the database is reachable through the index (compile-time check)",
+   "Differential test against libclamav on PE and ELF samples with EP and section-relative signatures",
+   "Benchmark shows anchored lookups add under 2 microseconds per file [E]"
+  ]
+ },
+ {
+  "key": "P4.08",
+  "goal": "Parse .ldb logical signatures: subsignatures, the target description block, and logical expressions compiled to a compact RPN program.",
+  "refs": [
+   "https://docs.clamav.net/manual/Signatures/LogicalSignatures.html",
+   "src/compile/parse_ldb.zig"
+  ],
+  "scope": [
+   "src/compile/parse_ldb.zig: SignatureName;TargetDescriptionBlock;LogicalExpression;Subsig0;Subsig1;...",
+   "TDB predicates: Engine, Target, FileSize, EntryPoint, NumberOfSections, Container, Intermediates, IconGroup (rejected with reason until icons ship)",
+   "Expressions to RPN ops: HIT i, COUNT i, CMP EQ/GT/LT k, AND, OR, DISTINCT_GE k for =X,Y, OFFSETS i for multi-offset conditions",
+   "LDB_TABLE: 32-byte header per signature {sig, nsub, expr_off, tdb_off, flags}",
+   "PCRE and byte-compare subsigs are parsed here and handed to their own issues"
+  ],
+  "out_of_scope": [
+   "Runtime evaluation (P4.09)",
+   "PCRE execution (P4.11)",
+   "Byte compare (P4.12)"
+  ],
+  "notes": [
+   "ClamAV allows at most 64 subsignatures per logical signature: enforce it",
+   "Subsignature modifiers and offsets reuse the P4.01 IR and P4.02 offset parsing"
+  ],
+  "accept": [
+   "Parses every .ldb line in current main and daily, rejections accounted for",
+   "RPN evaluation unit tests for every expression form, including nested counts and distinct counts",
+   "Fuzz target for the expression parser runs clean"
+  ]
+ },
+ {
+  "key": "P4.09",
+  "goal": "Track logical-signature state per file at a cost proportional to what was touched, and evaluate only the logical signatures that saw a hit.",
+  "refs": [
+   "src/match/logical.zig"
+  ],
+  "scope": [
+   "Per-worker open-addressing table of 8192 slots x 16 bytes {ldb u32, mask u64, cnt_off u16, dead u8}, reset through a touched list",
+   "Count side arena of u16 counters for subsigs used in count conditions",
+   "On first touch: evaluate TDB predicates against the file context; mark dead when they fail",
+   "Overflow spills to the arena: slower, never a failure",
+   "Finalize: evaluate RPN for touched, live signatures; report the first match or all matches in ALLMATCH mode"
+  ],
+  "out_of_scope": [
+   "Tier-D deferral (P4.10)"
+  ],
+  "notes": [
+   "A dense bitset over about 400k subsigs would cost 50 KB to clear per file and a stamp array 2.4 MB per thread; the sparse table avoids both",
+   "128 KB per worker counts toward the private-dirty budget in the design's memory table"
+  ],
+  "accept": [
+   "Differential tests against libclamav on logical signatures with counts, distinct counts and offsets",
+   "Per-file reset cost measured as O(touched): flat when the database grows",
+   "No allocation in the hot path, asserted in tests"
+  ]
+ },
+ {
+  "key": "P4.10",
+  "goal": "Short subsignatures (tier D, 3 bytes or fewer) do not get their own stream prefilter when the logical expression cannot be true without a longer partner: they are checked only after that partner hits.",
+  "refs": [
+   "src/compile/atoms.zig",
+   "src/match/logical.zig"
+  ],
+  "scope": [
+   "Compile-time required-subsig analysis over each RPN expression: find subsigs whose hit is necessary for the expression to be true",
+   "Mark tier-D subsigs deferred when a required partner is tier A to C",
+   "Second pass in finalize scans only deferred subsigs of logical signatures whose partner hit",
+   "Remaining tier-D subsigs fall back to anchored lookups or 2 to 3 byte gram bitmaps with positional checks",
+   "Coverage report counts deferred, anchored and bitmap tier-D subsigs"
+  ],
+  "out_of_scope": [
+   "Measuring the result (P4.17)"
+  ],
+  "notes": [
+   "This is the same idea as Hyperscan's Rose decomposition",
+   "[E] target: at least 90% of tier-D subsigs deferrable or anchorable"
+  ],
+  "accept": [
+   "No detection changes against the non-deferred path on the malware corpus (differential test)",
+   "Candidate rate per MB drops on the benign corpus, recorded in bench results"
+  ]
+ },
+ {
+  "key": "P4.11",
+  "goal": "PCRE subsignatures in .ldb run through zig-regex byte mode, only when their trigger expression is true and only over their offset window.",
+  "refs": [
+   "zig-utils/zig-regex src/dfa.zig",
+   "zig-utils/zig-regex src/parser.zig",
+   "src/match/regex_bridge.zig",
+   "https://docs.clamav.net/manual/Signatures/LogicalSignatures.html"
+  ],
+  "scope": [
+   "src/match/regex_bridge.zig: compile ClamAV PCRE subsigs with zig-regex bytes mode and its flags (i, s, m, x, and the ClamAV-specific g, r, e)",
+   "Trigger evaluation over other subsig hits before running the regex",
+   "Matcher with caller-supplied scratch, a capped DFA state count and a step budget",
+   "Bounded process-wide read-mostly cache of compiled programs (about 4 MB) until serialised programs live in the blob",
+   "Unsupported constructs rejected at compile time with reasons in the coverage report"
+  ],
+  "out_of_scope": [
+   "zig-regex changes themselves (P2.01 to P2.05)",
+   "The comparison against PCRE2 (P4.19)"
+  ],
+  "notes": [
+   "zig-regex today maps \\xHH to UTF-8 code points; byte mode from P2.01 is required",
+   "Required literal factors from P2.04 feed atom selection for regex-only subsigs"
+  ],
+  "accept": [
+   "Differential test against libclamav on every PCRE subsig in the database that compiles",
+   "Worst-case regex inputs respect the step budget",
+   "Cache stays under its cap under the full database and the malware corpus"
+  ]
+ },
+ {
+  "key": "P4.12",
+  "goal": "Support ClamAV byte-compare subsignatures, which read a number at an offset relative to another subsig hit and compare it.",
+  "refs": [
+   "https://docs.clamav.net/manual/Signatures/LogicalSignatures.html",
+   "src/match/logical.zig"
+  ],
+  "scope": [
+   "Parse (subsig#offset#options#comparisons) forms: hex, decimal and automatic encodings, little and big endian, byte widths 1 to 8",
+   "Comparison operators <, >, = with up to two comparisons",
+   "Evaluate after the referenced subsig's offsets are known, inside finalize",
+   "Bounds checks against the file size, with a limit flag on violation"
+  ],
+  "out_of_scope": [
+   "Other subsig kinds (P4.06, P4.11)"
+  ],
+  "notes": [
+   "Byte compare reads only a few bytes; keep it in the logical-evaluation path, not the stream loop"
+  ],
+  "accept": [
+   "Unit tests for every encoding, width and endianness",
+   "Differential test against libclamav on the byte-compare signatures in the database"
+  ]
+ },
+ {
+  "key": "P4.13",
+  "goal": "File-type magic (.ftm) decides the partition and embedded-type triggers for each file, and container signatures (.cdb) match on archive member metadata.",
+  "refs": [
+   "https://docs.clamav.net/manual/Signatures/FileTypeMagic.html",
+   "https://docs.clamav.net/manual/Signatures/ContainerMetadata.html",
+   "src/fmt/ftm.zig"
+  ],
+  "scope": [
+   "src/compile/parse_ftm.zig and an FTM_TRIE section in the hot region: magic at fixed offsets plus the embedded-type entries",
+   "src/fmt/ftm.zig: classify from the first 4 KiB; return type plus embedded-type triggers",
+   "src/compile/parse_cdb.zig and a CDB_TABLE: container type, sizes, encryption flag, position, filename regex",
+   "Member iteration hook that evaluates .cdb once per member, with the filename regex through zig-regex"
+  ],
+  "out_of_scope": [
+   "The container parsers (P5.01 to P5.04)"
+  ],
+  "notes": [
+   "Type detection must match libclamav so that target-type partitions see the same files",
+   "Embedded-type triggers (for example a PE inside a document) feed the container framework"
+  ],
+  "accept": [
+   "File-type classification matches clamscan --debug on a mixed corpus of at least 10k files",
+   "Every .cdb signature in the database compiles or is rejected with a reason",
+   "Unit tests for overlapping magic entries"
+  ]
+ },
+ {
+  "key": "P4.14",
+  "goal": "Compile the YARA subset ClamAV supports (text, hex and regex strings with string-driven conditions, no modules) into the same IR and logical RPN, so YARA rules cost the same as native signatures.",
+  "refs": [
+   "https://docs.clamav.net/manual/Signatures/YaraRules.html",
+   "src/compile/yara/"
+  ],
+  "scope": [
+   "src/compile/yara/: lexer, parser, semantic checks",
+   "Strings: text with nocase, wide, ascii, fullword, xor over a small range (expanded); hex strings mapped onto the hex IR; regex strings through zig-regex bytes with atoms from required literal factors",
+   "Conditions: and, or, not, #a op n, $a at N, $a in (a..b), N of (...), any/all of them, filesize, uint8/16/32[be](off), @a[i]",
+   "Lowered onto the logical RPN, extended with offset predicates",
+   "Rules using modules, import, global or external variables are rejected and logged in the coverage report"
+  ],
+  "out_of_scope": [
+   "Guardian rule metadata (P4.15)",
+   "Comparing regex results with PCRE2 (P4.19)"
+  ],
+  "notes": [
+   "Limits match ClamAV: at most 64 strings per rule, wildcard-separated segments at least 2 bytes"
+  ],
+  "accept": [
+   "A public YARA rule set compiles with every rejection explained",
+   "Differential tests against yara and libclamav on supported rules and a sample corpus",
+   "Fuzz target for the YARA parser runs clean"
+  ]
+ },
+ {
+  "key": "P4.15",
+  "goal": "Guardian's own rule format is the YARA subset plus a TOML metadata file, compiled into the same database, with a starter rule pack for threats ClamAV covers poorly in our ecosystem.",
+  "refs": [
+   "src/compile/guardian/",
+   "rules/"
+  ],
+  "scope": [
+   "Rule pack layout: rules/<family>/*.yar plus rules/<family>/meta.toml (category, severity, references, false-positive notes, owner)",
+   "Compiler support: a source tag guardian in SIGMETA, names prefixed Guardian.",
+   "Starter pack: web shells (PHP, JSP, ASPX), JavaScript skimmers, malicious npm install scripts, cryptominer droppers, Linux backdoors from public reports",
+   "Signed rule-pack bundle format for distribution by the Guardian app",
+   "Test fixtures: one benign and one matching sample per rule (synthetic where samples cannot be published)"
+  ],
+  "out_of_scope": [
+   "Serving the feed (Guardian P10.13)"
+  ],
+  "notes": [
+   "No new language: anything a rule needs beyond the subset is a YARA subset gap to fix in P4.14"
+  ],
+  "accept": [
+   "zav compile accepts the pack; zav coverage lists every rule",
+   "Each rule matches its fixture and does not fire on the benign corpus",
+   "Bundle signature verification rejects a tampered pack"
+  ]
+ },
+ {
+  "key": "P4.16",
+  "goal": "Pick the stage-one prefilter with measurements, not argument: split-block Bloom with tiers, an FDR-style shift-or, a depth-4 double-array Aho-Corasick and Teddy, on the real atom set.",
+  "refs": [
+   "bench/",
+   "zig-utils/zig-regex literals module",
+   "zig-utils/zig-waf src/phrase.zig"
+  ],
+  "scope": [
+   "Benchmark program over the B1 benign and B2 large-file corpora with the full compiled atom set",
+   "Metrics: GB/s per core including stage two, candidates per MB, cache misses, SMT on and off",
+   "Variants: SBBF tiers A to C, FDR prototype, double-array AC depth 4, Teddy for small partitions",
+   "Results committed to docs/experiments/E2.md and the chosen design recorded in DESIGN.md"
+  ],
+  "out_of_scope": [
+   "Atom selection quality (P4.17)"
+  ],
+  "notes": [
+   "Pass line: SBBF on the PE partition at least 1 GB/s per core including stage two, and at least 3x clamd raw throughput",
+   "If it fails: build the FDR variant or split partitions further"
+  ],
+  "accept": [
+   "Results for x86_64 and aarch64 are committed with hardware details",
+   "A decision is recorded and the losing variants are removed or kept behind a build flag with a reason"
+  ]
+ },
+ {
+  "key": "P4.17",
+  "goal": "Measure what rare-atom selection and tier-D deferral actually buy compared with prefix selection.",
+  "refs": [
+   "src/compile/atoms.zig",
+   "docs/experiments/"
+  ],
+  "scope": [
+   "Compile the database twice: frequency-model atoms against 3-byte prefixes",
+   "Measure candidates per MB and verify steps per MB on B1 and B2",
+   "Report tier-D counts: deferred, anchored, bitmap",
+   "Write docs/experiments/E3.md"
+  ],
+  "out_of_scope": [
+   "Changing the prefilter design (P4.16)"
+  ],
+  "notes": [
+   "Pass line: at least 10x fewer candidates than prefix selection; at least 90% of tier-D subsigs deferrable or anchorable",
+   "If it fails: per-signature hints in the compiler, or accept a slower partition and document it"
+  ],
+  "accept": [
+   "Numbers committed and the [E] figures in DESIGN.md replaced",
+   "Follow-up issues opened for any partition that misses the pass line"
+  ]
+ },
+ {
+  "key": "P4.18",
+  "goal": "Prove the verify VM cannot be driven into slow paths by crafted input, with the full database loaded.",
+  "refs": [
+   "src/match/verify_vm.zig",
+   "bench/corpora/A1"
+  ],
+  "scope": [
+   "Build worst-case inputs against the real database: maximal candidate density, long unbounded parts, many alternations",
+   "Measure ms per MB and steps per MB per input",
+   "Verify budgets trigger and set the limit flag",
+   "Write docs/experiments/E4.md and add the inputs to the adversarial corpus"
+  ],
+  "out_of_scope": [
+   "Container bombs (P5.17)"
+  ],
+  "notes": [
+   "Pass line: no input exceeds 50 ms per MB"
+  ],
+  "accept": [
+   "All A1 inputs stay under the pass line in CI",
+   "Budget values in the default config are justified by the measurements"
+  ]
+ },
+ {
+  "key": "P4.19",
+  "goal": "Confirm zig-regex byte mode gives the same answers as PCRE2 on every ClamAV PCRE subsignature and YARA regex string we accept.",
+  "refs": [
+   "zig-utils/zig-regex",
+   "src/match/regex_bridge.zig"
+  ],
+  "scope": [
+   "Harness that runs each accepted pattern through zig-regex bytes and PCRE2 on the benign and malware corpora",
+   "Report compile failures, result differences and timing",
+   "Write docs/experiments/E13.md"
+  ],
+  "out_of_scope": [
+   "Fixing zig-regex (file issues in zig-utils/zig-regex)"
+  ],
+  "notes": [
+   "Pass line: at least 99% of patterns compile with identical results; the rest are marked unsupported in the coverage report",
+   "PCRE2 is used only by this harness, never linked into the engine"
+  ],
+  "accept": [
+   "Results committed; each difference is either fixed upstream or listed as unsupported with a reason"
+  ]
+ },
+ {
+  "key": "P4.20",
+  "goal": "A differential test suite that checks zav against libclamav for every signature grammar feature, so semantic drift is caught on every change.",
+  "refs": [
+   "tests/differential/",
+   "https://docs.clamav.net/manual/Signatures.html"
+  ],
+  "scope": [
+   "Synthetic signature and matching or non-matching sample per grammar feature (hex ops, offsets, modifiers, logical forms, counts, PCRE flags, byte compare, ftm, cdb)",
+   "Runner that compares zav verdicts and names with clamscan using the same database built by sigtool",
+   "CI job (Linux) with ClamAV installed only in the test environment",
+   "Report of any mismatch with the signature, sample and both outputs"
+  ],
+  "out_of_scope": [
+   "Full-corpus parity (E9, P6.21)"
+  ],
+  "notes": [
+   "Known intentional differences (bytecode, unsupported targets) are listed in one place and excluded explicitly, never silently",
+   "Container (.cdb) differential cases need the container parsers and run in the P5.20 gate; this issue covers the non-container grammar."
+  ],
+  "accept": [
+   "Suite runs in CI and is green",
+   "Introducing a deliberate semantic change makes it fail (checked once in a test commit)"
+  ]
+ },
+ {
+  "key": "P4.21",
+  "goal": "Phase gate: every in-scope signature type compiles from the real databases, matches correctly and passes the differential suite, with the prefilter decision measured.",
+  "refs": [
+   "docs/DESIGN.md",
+   "docs/experiments/"
+  ],
+  "scope": [
+   "Compile main and daily with the coverage report committed",
+   "Differential suite green; E2, E3, E4 and E13 results committed",
+   "Guardian starter pack compiles",
+   "Update DESIGN.md with measured figures replacing estimates"
+  ],
+  "out_of_scope": [
+   "Containers and formats (P5)",
+   "Runtime and daemon (P6)"
+  ],
+  "accept": [
+   "All listed blockers closed with decision comments",
+   "zav scan of a raw-file corpus produces the same detections as clamscan --bytecode=no for the supported signature types"
+  ]
+ },
+ {
+  "key": "P5.01",
+  "goal": "A container framework that streams child objects through the same pipeline with strict, ClamAV-compatible limits, so archives and documents are scanned without materialising whole files or allowing bombs.",
+  "refs": [
+   "src/engine/source.zig",
+   "src/engine/limits.zig",
+   "src/engine/budget.zig"
+  ],
+  "scope": [
+   "Source union: fd range, memory slice, decompressor over a parent Source, spill file",
+   "Child sources stream in 64 KiB decompressed blocks unless they need random access",
+   "Random access: children up to 8 MiB go to a per-depth arena slab; larger ones spill to O_TMPFILE (Linux) or an unlinked temp file (macOS)",
+   "Limits: MaxScanSize, MaxFileSize, MaxRecursion 17, MaxFiles, MaxEmbeddedPE, per-member ratio guard (100:1 after 1 MiB), absolute output caps, total output budget per scan",
+   "Global big-window budget (default 64 MiB): windows over 1 MiB take a token; without one the job waits briefly, then records a limit event",
+   "Container path recorded on every result (for example archive.zip/inner.docx/word/vbaProject.bin)"
+  ],
+  "out_of_scope": [
+   "Specific formats (P5.02 onward)"
+  ],
+  "notes": [
+   "Spill files live in the page cache, not anonymous memory, so they do not count toward private dirty",
+   "Every limit hit is reported, and config decides whether it is a verdict"
+  ],
+  "accept": [
+   "Nested synthetic containers respect each limit in unit tests",
+   "Peak private dirty with the budget exhausted stays under the configured value plus the nominal figure",
+   "Container paths appear correctly in results"
+  ]
+ },
+ {
+  "key": "P5.02",
+  "goal": "Streaming decoders for gzip, bzip2, xz and zstd that feed the pipeline block by block and respect the big-window budget.",
+  "refs": [
+   "lib/std/compress/flate/Decompress.zig",
+   "lib/std/compress/zstd/Decompress.zig",
+   "lib/std/compress/xz.zig",
+   "lib/std/compress/lzma2.zig",
+   "src/fmt/gzip.zig",
+   "src/fmt/bzip2.zig"
+  ],
+  "scope": [
+   "gzip through std.compress.flate (64 KiB window), including multi-member streams",
+   "zstd through std.compress.zstd with the window capped at 8 MiB by default; larger frames raise a limit event",
+   "xz and LZMA2 through std, dictionary capped at 8 MiB by default",
+   "bzip2: our own streaming decoder (std has none), 900 KiB working set",
+   "All windows over 1 MiB take budget tokens"
+  ],
+  "out_of_scope": [
+   "Speed comparison with C libraries (P5.16)",
+   "Archive formats (P5.03, P5.04)"
+  ],
+  "notes": [
+   "Do not use the Home compression package: its zstd, brotli and lz4 are not the spec formats (tracked in home-lang/home)",
+   "Untrusted size fields are hints only; output is bounded by the limits, not by headers"
+  ],
+  "accept": [
+   "Decode conformance against reference test vectors for each format",
+   "Fuzz targets for each decoder wrapper and the bzip2 decoder run 10M iterations clean",
+   "A decompression bomb of each format stops at its limit with a limit event"
+  ]
+ },
+ {
+  "key": "P5.03",
+  "goal": "A zip parser that handles what real malware does to zip files: zip64, data descriptors, encryption, overlapping entries and central directories that disagree with local headers.",
+  "refs": [
+   "lib/std/zip.zig",
+   "src/fmt/zip.zig"
+  ],
+  "scope": [
+   "Own parser over Source (std.zip needs a seekable File.Reader and supports store and deflate only)",
+   "Central directory first, with local-header walking as the fallback when it is missing or damaged",
+   "zip64 extra fields, data descriptors, encrypted-entry detection (reported, not decrypted)",
+   "Overlapping-entry detection (Heuristics.Zip.OverlappingFiles equivalent)",
+   "When the central directory and local headers disagree, scan both views",
+   "Methods: store, deflate, deflate64 if cheap, bzip2, lzma, zstd, xz through P5.02"
+  ],
+  "out_of_scope": [
+   "OOXML semantics (P5.10)"
+  ],
+  "notes": [
+   "Members needing random access follow the P5.01 spill rules",
+   ".cdb container signatures run per member through the P4.13 hook"
+  ],
+  "accept": [
+   "Parses the EICAR zip files and a corpus of malformed zips without crashing",
+   "Fifield-style overlapping bombs are detected and bounded",
+   "Fuzz target runs 10M iterations clean"
+  ]
+ },
+ {
+  "key": "P5.04",
+  "goal": "Streaming tar (ustar, pax, GNU) and cpio support for archives that often carry Linux malware.",
+  "refs": [
+   "lib/std/tar.zig",
+   "src/fmt/tar.zig"
+  ],
+  "scope": [
+   "tar through std.tar's streaming iterator, extended where pax and GNU long names need it",
+   "cpio: newc, odc and binary formats",
+   "Members stream through the pipeline with container paths",
+   "Path and size fields treated as untrusted"
+  ],
+  "out_of_scope": [
+   "Compressed wrappers (P5.02)"
+  ],
+  "accept": [
+   "Test vectors for each tar and cpio variant",
+   "Fuzz target clean for 10M iterations",
+   "tar.gz and tar.xz scan end to end through P5.02"
+  ]
+ },
+ {
+  "key": "P5.05",
+  "goal": "A PE parser that provides what signatures need: headers, sections, entry point, imports, overlay, and section hashes for .mdb and .msb.",
+  "refs": [
+   "src/fmt/pe.zig",
+   "https://docs.clamav.net/manual/Signatures/HashSignatures.html"
+  ],
+  "scope": [
+   "DOS and NT headers, optional header (32 and 64 bit), section table, entry point mapping to file offset",
+   "Import table and the import hash used by .imp signatures",
+   "Section hashes computed only for sections whose raw size appears in the .mdb/.msb size directory",
+   "Overlay and embedded resources exposed as child sources",
+   "Context for TDB predicates: EntryPoint, NumberOfSections"
+  ],
+  "out_of_scope": [
+   "Unpackers (P5.19)",
+   "Authenticode trust (.crb/.cat, later phase)"
+  ],
+  "notes": [
+   "Malformed PE files are common: every field access is bounds-checked and errors become limit or parse events, not crashes"
+  ],
+  "accept": [
+   "EP and section offsets match clamscan --debug on a PE corpus",
+   "Section-hash and import-hash signatures detect their test samples",
+   "Fuzz target clean for 10M iterations"
+  ]
+ },
+ {
+  "key": "P5.06",
+  "goal": "ELF and Mach-O parsers, including fat Mach-O, so Linux and macOS malware gets entry points, sections and per-slice scanning.",
+  "refs": [
+   "src/fmt/elf.zig",
+   "src/fmt/macho.zig"
+  ],
+  "scope": [
+   "ELF 32 and 64 bit, both endians: headers, program and section headers, entry point",
+   "Mach-O 32 and 64 bit: load commands, segments and sections, entry point (LC_MAIN and LC_UNIXTHREAD)",
+   "Fat binaries: each slice becomes a child source",
+   "Context for EP and section-relative offsets"
+  ],
+  "out_of_scope": [
+   "Code signature validation"
+  ],
+  "accept": [
+   "Entry points match clamscan --debug on ELF and Mach-O corpora",
+   "Fat binaries scan every slice",
+   "Fuzz targets clean for 10M iterations"
+  ]
+ },
+ {
+  "key": "P5.07",
+  "goal": "An HTML normaliser that produces the same stream libclamav does for target type 3, so normalised-HTML signatures fire on the same input.",
+  "refs": [
+   "src/fmt/html_norm.zig",
+   "https://docs.clamav.net/manual/Signatures/ExtendedSignatures.html"
+  ],
+  "scope": [
+   "Byte-level state machine: lowercasing, whitespace collapse, entity decoding, comment stripping, script extraction",
+   "Outputs: the normalised stream (target 3) and extracted scripts for P5.13",
+   "MaxHTMLNormalize limit",
+   "Streaming over blocks, no whole-document buffer"
+  ],
+  "out_of_scope": [
+   "JavaScript normalisation (P5.13)",
+   "Phishing URL extraction (later phase)"
+  ],
+  "notes": [
+   "zig-xml is not used here: speed and ClamAV fidelity need a dedicated byte state machine",
+   "Reuse zig-waf's HTML entity tables if their semantics match; do not copy them"
+  ],
+  "accept": [
+   "Normalised output byte-identical to libclamav's on an HTML corpus (dumped with clamscan --leave-temps)",
+   "Fuzz target clean for 10M iterations",
+   "Throughput recorded in bench results"
+  ]
+ },
+ {
+  "key": "P5.08",
+  "goal": "The ASCII text normaliser for target type 7, matching libclamav's output.",
+  "refs": [
+   "src/fmt/text_norm.zig"
+  ],
+  "scope": [
+   "Lowercasing and whitespace rules as in libclamav",
+   "Applied to files classified as text",
+   "MaxScriptNormalize limit"
+  ],
+  "out_of_scope": [
+   "HTML (P5.07)"
+  ],
+  "accept": [
+   "Output byte-identical to libclamav's on a text corpus",
+   "Fuzz target clean"
+  ]
+ },
+ {
+  "key": "P5.09",
+  "goal": "Email files are walked with zig-mime: every part decoded and scanned, target type 4 signatures applied to the message.",
+  "refs": [
+   "zig-utils/zig-mime",
+   "src/fmt/mime.zig"
+  ],
+  "scope": [
+   "Classify RFC 822 messages and mbox",
+   "Feed each decoded part (base64, quoted-printable) as a child source with its filename in the container path",
+   "Apply target 4 signatures to the message stream",
+   "Nested messages and multipart depth under the container limits"
+  ],
+  "out_of_scope": [
+   "The MIME walker itself (P2.11 to P2.15)"
+  ],
+  "notes": [
+   "zig-mime accepts bare LF line endings, an evasion the mail server's parser missed"
+  ],
+  "accept": [
+   "EICAR attached to an email is detected with the right container path",
+   "Evasion samples from zig-mime's test set are scanned",
+   "Results match clamscan on an email corpus"
+  ]
+ },
+ {
+  "key": "P5.10",
+  "goal": "Office Open XML documents are unpacked through the zip parser and zig-xml, with macro-enabled parts flagged and extracted.",
+  "refs": [
+   "zig-utils/zig-xml src/xml.zig",
+   "src/fmt/ooxml.zig"
+  ],
+  "scope": [
+   "Detect docx, xlsx, pptx and their macro variants from [Content_Types].xml and relationships",
+   "Small XML parts through zig-xml (incremental mode from P2.16)",
+   "vbaProject.bin handed to the OLE2 parser as a child",
+   "External relationship targets and embedded objects recorded as findings"
+  ],
+  "out_of_scope": [
+   "OLE2 and VBA (P5.11)"
+  ],
+  "accept": [
+   "Macro-enabled documents are flagged and their VBA reaches the OLE2 parser",
+   "A corpus of OOXML files scans without errors",
+   "Fuzz target for the OOXML layer clean"
+  ]
+ },
+ {
+  "key": "P5.11",
+  "goal": "OLE2 compound files and VBA macros: FAT chains, streams and MS-OVBA decompression, so macro signatures and legacy Office malware are covered.",
+  "refs": [
+   "src/fmt/ole2.zig",
+   "src/fmt/vba.zig",
+   "https://learn.microsoft.com/openspecs/office_file_formats/ms-ovba"
+  ],
+  "scope": [
+   "Compound file binary format: header, FAT, mini FAT, directory entries, stream reading with loop detection",
+   "VBA project streams and MS-OVBA decompression, module source exposed for target 2 signatures",
+   "Embedded objects as child sources",
+   "Limits on stream counts and sizes"
+  ],
+  "out_of_scope": [
+   "XLM macro emulation"
+  ],
+  "notes": [
+   "FAT chains in malicious files loop and overlap: detect cycles and bound reads"
+  ],
+  "accept": [
+   "VBA source extracted matches olevba output on a sample set",
+   "Macro signatures detect their samples",
+   "Fuzz targets clean for 10M iterations"
+  ]
+ },
+ {
+  "key": "P5.12",
+  "goal": "A PDF parser that finds what malicious PDFs hide: objects, streams with all common filters, object streams and embedded JavaScript.",
+  "refs": [
+   "src/fmt/pdf.zig"
+  ],
+  "scope": [
+   "Tolerant object scanning (do not trust xref alone), plus xref and xref streams when present",
+   "Filters: FlateDecode, ASCIIHexDecode, ASCII85Decode, LZWDecode, RunLengthDecode, with chained filters and predictors",
+   "Object streams",
+   "JavaScript and embedded files extracted as child sources",
+   "Target 10 signatures applied to decoded content"
+  ],
+  "out_of_scope": [
+   "Encrypted PDF decryption beyond the empty user password",
+   "JavaScript normalisation (P5.13)"
+  ],
+  "notes": [
+   "Pathological PDFs (deep nesting, huge streams, filter loops) must stay inside the budgets: add them to the adversarial corpus"
+  ],
+  "accept": [
+   "JavaScript extraction works on a public malicious PDF sample set (run in the isolated environment)",
+   "Fuzz target clean for 10M iterations",
+   "Adversarial PDFs stay within time and memory bounds"
+  ]
+ },
+ {
+  "key": "P5.13",
+  "goal": "Normalise JavaScript extracted from HTML and PDF so obfuscated scripts match signatures written against the normalised form.",
+  "refs": [
+   "src/fmt/js_norm.zig"
+  ],
+  "scope": [
+   "Tokenizer-based normalisation compatible with libclamav: identifier renaming, string concatenation folding, whitespace and comment removal, simple unescape handling",
+   "Limits on script size and token counts",
+   "Output fed to the matching pipeline"
+  ],
+  "out_of_scope": [
+   "Executing JavaScript"
+  ],
+  "notes": [
+   "Never evaluate code; this is lexical normalisation only"
+  ],
+  "accept": [
+   "Normalised output matches libclamav on a script corpus",
+   "Fuzz target clean"
+  ]
+ },
+ {
+  "key": "P5.14",
+  "goal": "RTF documents and 7z archives with LZMA and LZMA2, two common carriers that the first format phase skipped.",
+  "refs": [
+   "lib/std/compress/lzma.zig",
+   "lib/std/compress/lzma2.zig",
+   "src/fmt/rtf.zig",
+   "src/fmt/sevenzip.zig"
+  ],
+  "scope": [
+   "RTF: control word parsing, embedded objects (objdata hex) as child sources",
+   "7z: headers, encoded headers, LZMA and LZMA2 coders through std, BCJ filters",
+   "Encrypted 7z detected and reported"
+  ],
+  "out_of_scope": [
+   "PPMd and other rare 7z coders unless the corpus shows demand"
+  ],
+  "accept": [
+   "EICAR inside RTF objdata and inside 7z is detected",
+   "Fuzz targets clean for 10M iterations"
+  ]
+ },
+ {
+  "key": "P5.15",
+  "goal": "Heuristic detections that need no signature: entropy in risky places, executable header anomalies, content that does not match its extension, and obfuscated scripts.",
+  "refs": [
+   "src/engine/heuristics.zig"
+  ],
+  "scope": [
+   "Shannon entropy over the first and last blocks, applied only in high-risk contexts (temp directories, uploads, executables)",
+   "PE, ELF and Mach-O anomalies: impossible section layouts, entry point outside sections, writable and executable sections",
+   "Extension against detected type mismatch, reported with both values",
+   "Script obfuscation markers: long encoded blobs, eval chains, dense escapes",
+   "Every heuristic has a name under Heuristics.Guardian.*, a severity, and can be disabled in config"
+  ],
+  "out_of_scope": [
+   "Host-level checks (P7)"
+  ],
+  "notes": [
+   "Heuristics report suspicious, not infected, by default; false positives on the benign corpus decide thresholds"
+  ],
+  "accept": [
+   "Zero suspicious verdicts above the configured severity on the benign corpus",
+   "Each heuristic has a positive fixture"
+  ]
+ },
+ {
+  "key": "P5.16",
+  "goal": "Measure whether Zig std decoders are fast enough, against zlib-ng, libdeflate and libzstd, before archives become the bottleneck.",
+  "refs": [
+   "lib/std/compress/flate/Decompress.zig",
+   "lib/std/compress/zstd/Decompress.zig",
+   "bench/"
+  ],
+  "scope": [
+   "Decode throughput per format on a representative archive set",
+   "C libraries used only inside the benchmark",
+   "Write docs/experiments/E7.md"
+  ],
+  "out_of_scope": [
+   "Linking C libraries into the engine: decided against (pure Zig)"
+  ],
+  "notes": [
+   "Pass line: std flate at least 60% of zlib-ng",
+   "If it fails: optimise the decoder in our code or upstream to Zig std; no C fallback"
+  ],
+  "accept": [
+   "Results committed; follow-up issues opened for any format under the pass line"
+  ]
+ },
+ {
+  "key": "P5.17",
+  "goal": "Fuzz every parser and keep an adversarial corpus that proves bounded time and memory on bombs, deep nesting and pathological documents.",
+  "refs": [
+   "tests/fuzz/",
+   "bench/corpora/A1"
+  ],
+  "scope": [
+   "Fuzz targets for zip, tar, cpio, gzip, bzip2, xz, zstd, PE, ELF, Mach-O, OLE2, OOXML, PDF, HTML, JS, RTF, 7z and MIME",
+   "Corpus: nested zip bombs, overlapping zip, quines, deep nesting beyond recursion limits, pathological PDF and HTML",
+   "CI: fuzz smoke on every PR, long runs nightly",
+   "Time and memory bounds asserted per adversarial case"
+  ],
+  "out_of_scope": [
+   "Verify VM worst cases (P4.18)"
+  ],
+  "accept": [
+   "All fuzz targets run nightly without crashes",
+   "Every adversarial case stays within its declared bound in CI"
+  ]
+ },
+ {
+  "key": "P5.18",
+  "goal": "Phase-three containers: CAB, CHM, NSIS installers, ISO9660 images and DMG, in the order corpus impact shows.",
+  "refs": [
+   "src/fmt/cab.zig",
+   "src/fmt/chm.zig",
+   "src/fmt/nsis.zig",
+   "src/fmt/iso9660.zig",
+   "src/fmt/dmg.zig"
+  ],
+  "scope": [
+   "CAB with MSZIP (LZX and Quantum if the corpus needs them)",
+   "CHM (ITSF/ITSP, LZX)",
+   "NSIS installer data blocks",
+   "ISO9660 with Joliet",
+   "DMG (UDIF) with zlib, bzip2 and lzfse where feasible",
+   "Each format behind the container limits"
+  ],
+  "out_of_scope": [
+   "RAR (needs a licence review first)"
+  ],
+  "notes": [
+   "Order work by E9 parity diffs: start with the format that recovers the most missed detections"
+  ],
+  "accept": [
+   "Each format has test vectors and a fuzz target",
+   "Parity improvement per format recorded"
+  ]
+ },
+ {
+  "key": "P5.19",
+  "goal": "Unpack common executable packers so signatures written against unpacked code match, starting with UPX.",
+  "refs": [
+   "src/fmt/unpack/"
+  ],
+  "scope": [
+   "UPX for PE, ELF and Mach-O",
+   "Further packers chosen by E9 diff volume",
+   "Unpacked images become child sources",
+   "Strict bounds on output size and work"
+  ],
+  "out_of_scope": [
+   "Emulation-based unpacking"
+  ],
+  "notes": [
+   "ClamAV's bytecode signatures cover some unpackers; this work recovers part of that coverage without a bytecode VM"
+  ],
+  "accept": [
+   "UPX-packed samples unpack to images identical to upx -d output",
+   "Fuzz target per unpacker"
+  ]
+ },
+ {
+  "key": "P5.20",
+  "goal": "Phase gate: phase-one and phase-two formats scan with bounded time and memory, match libclamav where fidelity matters, and survive fuzzing.",
+  "refs": [
+   "docs/experiments/E7.md"
+  ],
+  "scope": [
+   "All listed format issues closed",
+   "Fuzz and adversarial suites green",
+   "E7 results committed",
+   "Memory under the container budget measured on the adversarial corpus"
+  ],
+  "out_of_scope": [
+   "Phase-three formats (P5.18, P5.19)",
+   "The integrated pipeline (P6.03)"
+  ],
+  "accept": [
+   "All blockers closed with decision comments",
+   "Every phase-one and phase-two format detects EICAR embedded in it",
+   "Differential checks for fixed-offset signatures on real PE and ELF samples (deferred from P4.07) pass",
+   "Container (.cdb) differential cases (deferred from P4.20) pass",
+   "Zipped EICAR variants (eicar_com.zip and eicarcom2.zip, deferred from P3.14) are detected"
+  ]
+ }
+]

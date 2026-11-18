@@ -1,0 +1,745 @@
+[
+  {
+    "key": "P8.01",
+    "goal": "A native `@stacksjs/malware` core package that gives every Stacks app one `scan()` call, one config file and pluggable drivers, so each upload surface in the framework can depend on it instead of inventing its own scanner client.",
+    "refs": [
+      "storage/framework/core/types/src/",
+      "storage/framework/core/config/src/defaults.ts",
+      "zig-utils/zig-anti-virus capi/zav.h and the @zig-utils/anti-virus package"
+    ],
+    "scope": [
+      "New package `storage/framework/core/malware` published as `@stacksjs/malware`, with `scan(input, options)` accepting bytes, a ReadableStream, a file path or a file descriptor and returning a Result of `{ verdict: 'clean' | 'infected' | 'suspicious' | 'error', signature?, containerPath?, durationMs }`",
+      "Driver `guardian`: in-process scanning through `@zig-utils/anti-virus` (bun:ffi), with a fallback to the zavd Unix socket when configured",
+      "Driver `clamd`: the clamd wire protocol (zINSTREAM with 4-byte big-endian frames, zPING, zVERSION) over a Unix socket or TCP. Because zavd speaks the same protocol, this driver covers both clamd and zavd endpoints",
+      "Driver `none`: always clean, logged once at boot so a disabled scanner is visible",
+      "`MalwareConfig` type in `core/types` and a default `config/malware.ts` overlay: driver, socket path, `failClosed` (default true), max scan bytes, timeout, quarantine disk, and a per-surface switch list (storage, forms, email, ai, file manager)",
+      "`health()` for the dashboard and `buddy doctor`"
+    ],
+    "out_of_scope": [
+      "Wiring the hooks into storage, email and the rest (P8.02 to P8.11)",
+      "The quarantine model (P8.08)"
+    ],
+    "notes": [
+      "Fail closed by default: a scanner that cannot answer returns `error`, and callers treat `error` as not clean unless `failClosed: false`",
+      "Keep the clamd client streaming: never buffer a whole upload just to frame it",
+      "Config follows the overlay rule: `config/malware.ts` merges over defaults, it never replaces them"
+    ],
+    "accept": [
+      "Unit tests for each driver, including a fake clamd server that answers OK, FOUND and garbage",
+      "An EICAR test: `scan()` on the EICAR string returns `infected` through the guardian driver and through the clamd driver pointed at zavd",
+      "`failClosed` behaviour covered when the socket is missing",
+      "`bun run typecheck` and `./buddy lint` clean"
+    ]
+  },
+  {
+    "key": "P8.02",
+    "goal": "Every file stored through `Storage.put` or `UploadedFile.store*` is scanned after its bytes are read and before anything is written to a disk, so no Stacks app can persist malware through the standard upload API.",
+    "refs": [
+      "storage/framework/core/storage/src/put-file.ts:212-252 (putUploadedFile: readBytes at 233, disk.write at 249)",
+      "storage/framework/core/storage/src/put-file.ts:64 (PutFileOptions)",
+      "storage/framework/core/storage/src/uploaded-file.ts:77 (store), :95 (storeAs), :114 and :124 (storePublicly, storePubliclyAs)"
+    ],
+    "scope": [
+      "Add `scan?: boolean | MalwareScanOptions` to `PutFileOptions`, defaulting to the `storage` switch in `config/malware.ts`",
+      "In `putUploadedFile`, call `@stacksjs/malware` between `readBytes` and the optional `transform`, so the original bytes are scanned, not a re-encoded copy",
+      "On `infected` or `suspicious`, throw a typed `MalwareDetectedError` carrying the signature name, and hand the bytes to quarantine when P8.08 has landed",
+      "`UploadedFile.store` and `storeAs` currently write straight to `Storage.disk().write` and skip `putUploadedFile`; route them through the same scan step",
+      "New `UploadedFile.scan()` that returns the verdict without storing, for callers that decide themselves"
+    ],
+    "out_of_scope": [
+      "Streams (P8.03) and presigned uploads (P8.04)",
+      "Quarantine storage itself (P8.08)"
+    ],
+    "notes": [
+      "The scan must run once per stored file, not once per call site: centralise it in a helper both paths use",
+      "Return the verdict alongside `PutResult` so callers can persist it"
+    ],
+    "accept": [
+      "EICAR test: `Storage.put` of an EICAR UploadedFile throws `MalwareDetectedError` and nothing is written to the disk",
+      "EICAR test for `store`, `storeAs` and `storePublicly`",
+      "A clean file stores exactly as before; existing storage tests stay green",
+      "`scan: false` skips scanning and is covered by a test"
+    ]
+  },
+  {
+    "key": "P8.03",
+    "goal": "`Storage.putStream` scans the stream as it flows to the disk, so large uploads are protected without buffering them whole in memory.",
+    "refs": [
+      "storage/framework/core/storage/src/facade.ts:346 (putStream)",
+      "storage/framework/core/storage/src/adapters/{s3,local,bun,azure,memory,scoped}.ts putStream implementations"
+    ],
+    "scope": [
+      "Tee the incoming ReadableStream: one branch to the adapter's `putStream`, one to a streaming `@stacksjs/malware` scan (guardian stream handle or clamd INSTREAM)",
+      "Write to a temporary key first; promote to the final path only on a clean verdict, delete the temporary object otherwise",
+      "Apply back-pressure correctly so a slow scanner slows the upload instead of growing memory",
+      "Respect `scan: false` in `PutStreamOptions`"
+    ],
+    "out_of_scope": [
+      "Presigned uploads that never pass through the server (P8.04)"
+    ],
+    "notes": [
+      "Adapters that cannot rename cheaply (S3) use copy plus delete for promotion; document the cost",
+      "The verdict must be final before the promoted object becomes visible"
+    ],
+    "accept": [
+      "EICAR test: `putStream` of an EICAR stream leaves no object at the final path on the local and memory adapters",
+      "A 200 MB clean stream uploads with bounded memory (asserted in a test with a memory ceiling)",
+      "Existing putStream tests green"
+    ]
+  },
+  {
+    "key": "P8.04",
+    "goal": "Direct-to-S3 uploads through presigned URLs and POST policies are scanned before they are usable, even though their bytes never reach the app server.",
+    "refs": [
+      "storage/framework/core/storage/src/facade.ts:510 (presignedUploadUrl)",
+      "storage/framework/core/storage/src/facade.ts:546 (presignedUploadPolicy)",
+      "storage/framework/core/storage/src/s3-presigned-post.ts"
+    ],
+    "scope": [
+      "When scanning is enabled, presigned URLs and policies target a quarantine prefix (default `incoming/`) instead of the final key",
+      "A `confirmUpload(key)` call (and a queue job) streams the staged object through `@stacksjs/malware`, then promotes it to the final key on a clean verdict or moves it to quarantine",
+      "Optional S3 event notification mode documented for apps that want promotion without a client confirm",
+      "Expose `status(key)` so the client can poll pending, clean or rejected"
+    ],
+    "out_of_scope": [
+      "Provisioning S3 event notifications in ts-cloud"
+    ],
+    "notes": [
+      "Never return the final public URL until promotion; a client must not be able to link to an unscanned object",
+      "Lifecycle rule on the staging prefix so abandoned uploads expire"
+    ],
+    "accept": [
+      "EICAR test against the memory or a mocked S3 adapter: a staged EICAR object is never promoted and ends in quarantine",
+      "A clean staged object is promoted and its URL resolves",
+      "Docs updated in the storage skill"
+    ]
+  },
+  {
+    "key": "P8.05",
+    "goal": "The dashboard file manager records a scan for every uploaded file as a first-class task, so CMS media and model-field uploads show their scan state next to optimize, transcode, tag and preview.",
+    "refs": [
+      "storage/framework/defaults/app/Actions/Dashboard/Content/file-metadata.ts:52 (StorageTaskKind), :77 (STORAGE_TASK_KINDS)",
+      "storage/framework/defaults/app/Actions/Dashboard/Content/file-manager.ts:987 (TASK_JOBS), uploadDashboardFiles",
+      "storage/framework/defaults/app/Models/StorageItemTask.ts:89 (kind enum)",
+      "storage/framework/defaults/app/Jobs/OptimizeStorageImageJob.ts (pattern to follow)"
+    ],
+    "scope": [
+      "Add `scan` to `StorageTaskKind`, `STORAGE_TASK_KINDS` (first in order), the `TASK_JOBS` map and the `StorageItemTask` model enum, keeping all three in step",
+      "New `ScanStorageFileJob` that streams the stored object through `@stacksjs/malware`, records `done` or `failed` with the signature, and quarantines on detection",
+      "Other tasks for a file wait for a clean scan; an infected file skips them with status `skipped`",
+      "Show the scan state in the Files page and the model upload field"
+    ],
+    "out_of_scope": [
+      "The synchronous scan in `Storage.put` (P8.02) still runs; this task covers files that arrive by other paths and records the result durably"
+    ],
+    "notes": [
+      "`ModelUploadAction` goes through `uploadDashboardFiles`, so model-field uploads are covered by the same change",
+      "Generate the migration for the enum change through the model-driven workflow"
+    ],
+    "accept": [
+      "EICAR test: uploading EICAR through `uploadDashboardFiles` records a failed scan task and quarantines the file",
+      "Type test: a missing `TASK_JOBS` entry for `scan` is a compile error",
+      "Existing file manager tests green"
+    ]
+  },
+  {
+    "key": "P8.06",
+    "goal": "The framework's remaining direct writes of user bytes (forms uploads, feedback screenshots, the upload test action) go through the scan step instead of around it.",
+    "refs": [
+      "storage/framework/defaults/routes/forms.ts:82 (Storage.put of a form file)",
+      "storage/framework/defaults/app/Actions/Dashboard/Feedback/FeedbackStoreAction.ts:51 (Storage.disk().write of a screenshot)",
+      "storage/framework/defaults/app/Actions/UploadTestAction.ts:33 (file.storePublicly)"
+    ],
+    "scope": [
+      "Forms: rely on the `Storage.put` scan from P8.02 and map `MalwareDetectedError` to a 422 response with a neutral message",
+      "Feedback: the screenshot is written with `disk().write`, which bypasses `put`; scan `attachment.bytes` before the write. This is the dashboard's one unauthenticated write path, so it must fail closed",
+      "UploadTestAction: covered by P8.02 through `storePublicly`; add an assertion",
+      "Grep the defaults for any other `disk().write` of request bytes and route each through the scan helper"
+    ],
+    "out_of_scope": [
+      "Size and type limits, which stay as they are"
+    ],
+    "notes": [
+      "Responses must not echo the signature name to anonymous callers; log it server-side"
+    ],
+    "accept": [
+      "EICAR test for each path: forms returns 422 and stores nothing, feedback stores nothing, the test action refuses the file",
+      "A repository-wide test that fails if a new `disk().write` of request bytes appears in the defaults without the scan helper"
+    ]
+  },
+  {
+    "key": "P8.07",
+    "goal": "Validation can reject infected or mislabelled files declaratively: a `file().clean()` rule, and the existing but unused magic-byte check actually wired in.",
+    "refs": [
+      "storage/framework/core/validation/src/",
+      "storage/framework/core/storage/src/mime-verify.ts:137 (verifyUploadedMime, no callers outside its docs)"
+    ],
+    "scope": [
+      "`schema.file().clean()` runs `@stacksjs/malware` on the uploaded bytes during request validation and fails with a validation error on anything but clean",
+      "`schema.file().mime([...])` uses the magic-byte sniffing behind `verifyUploadedMime` instead of trusting the client content type",
+      "Document both in the validation and storage skills, with the rule order: size, then mime, then clean"
+    ],
+    "out_of_scope": [
+      "Changing default upload limits"
+    ],
+    "notes": [
+      "Cache the verdict on the UploadedFile so `clean()` plus `Storage.put` does not scan twice"
+    ],
+    "accept": [
+      "EICAR test: a request whose file field is EICAR fails validation with `clean()`",
+      "A file claiming `image/png` with non-PNG bytes fails `mime(['image/png'])`",
+      "Scanning happens once per file across validation and storage (asserted with a counting fake driver)"
+    ]
+  },
+  {
+    "key": "P8.08",
+    "goal": "Detected files are kept, not lost: a quarantine model and disk that hold the bytes and the verdict, with restore and delete actions and a dashboard page.",
+    "refs": [
+      "storage/framework/defaults/app/Models/",
+      "storage/framework/defaults/resources/components/Dashboard/"
+    ],
+    "scope": [
+      "`QuarantinedFile` model: original disk and path, size, sha256, signature, verdict, surface (storage, forms, email, ...), uploader, timestamps",
+      "A `quarantine` disk (default local, private, never public) configured in `config/malware.ts`",
+      "`quarantine()` helper used by every hook; actions to restore (re-scan first, refuse if still infected unless forced by an admin) and delete",
+      "Dashboard page listing quarantined files with filters, guarded by a gate",
+      "Retention setting with a pruning job"
+    ],
+    "out_of_scope": [
+      "Fleet-wide quarantine views, which belong to the Guardian app"
+    ],
+    "notes": [
+      "Store quarantined bytes under their sha256 with no original extension, so nothing can serve them as active content"
+    ],
+    "accept": [
+      "EICAR test: an EICAR upload through `Storage.put` produces one `QuarantinedFile` row and one object on the quarantine disk",
+      "Restore of a still-infected file is refused",
+      "Migration generated from the model; dashboard page renders in the browser"
+    ]
+  },
+  {
+    "key": "P8.09",
+    "goal": "Inbound mail received through SES is checked for malware: SES's own verdict is honoured, and attachments are scanned when the message is parsed.",
+    "refs": [
+      "storage/framework/core/buddy/src/commands/deploy.ts:6960 (InboundEmailLambda definition)",
+      "storage/framework/core/email/src/inbound-parser.ts:71 (parseInboundEmail)",
+      "storage/framework/core/buddy/src/email-reprocess.ts",
+      "storage/framework/defaults/app/Actions/Dashboard/Email/InboxAttachmentDownloadAction.ts"
+    ],
+    "scope": [
+      "The inline inbound Lambda reads `receipt.virusVerdict.status` and marks messages with `FAIL` as infected in the metadata it writes",
+      "`parseInboundEmail` scans each attachment through `@stacksjs/malware` and records a per-attachment verdict",
+      "Infected attachments are quarantined and the download action refuses them",
+      "The inbox UI shows the verdict"
+    ],
+    "out_of_scope": [
+      "The self-hosted mail server, which is covered in the mail repository (P12.04, P12.05)",
+      "The `scan` config bug (P8.10)"
+    ],
+    "notes": [
+      "SES scanning and our scan are independent signals; either one marking a message infected is enough"
+    ],
+    "accept": [
+      "EICAR test: parsing a fixture message with an EICAR attachment marks that attachment infected and quarantines it",
+      "Lambda handler unit test for a FAIL verdict",
+      "The attachment download action returns 403 for an infected attachment"
+    ]
+  },
+  {
+    "key": "P8.10",
+    "goal": "`email.server.scan` means what it says: `false` turns SES scanning off, and the presence of the key no longer silently enables the email server.",
+    "refs": [
+      "storage/framework/core/buddy/src/commands/deploy.ts:7046 (`ScanEnabled: emailConfig?.server?.scan || true`)",
+      "storage/framework/core/buddy/src/commands/deploy.ts:6725 (`enableEmailServer = emailConfig?.server?.scan !== undefined`)",
+      "storage/framework/core/types/src/email.ts:240"
+    ],
+    "scope": [
+      "Replace `|| true` with `?? true` so an explicit `false` is respected and the default stays on",
+      "Decide email server enablement from an explicit flag (for example `server.enabled`) rather than from whether `scan` is set; keep backward compatibility by treating an existing `scan` key plus inbound config as enabled, with a deprecation note",
+      "Update the type docs and the email skill"
+    ],
+    "out_of_scope": [
+      "Malware scanning of inbound mail (P8.09)"
+    ],
+    "notes": [
+      "Both lines are config truthiness bugs; a test of the generated CloudFormation is the right seam"
+    ],
+    "accept": [
+      "Test: `scan: false` produces `ScanEnabled: false` in the generated template",
+      "Test: setting only `scan` no longer enables the email server without the explicit flag",
+      "Existing deploy tests green"
+    ]
+  },
+  {
+    "key": "P8.11",
+    "goal": "The AI package scans the bytes it accepts from outside before handing them to a model or a local tool.",
+    "refs": [
+      "storage/framework/core/ai/src/local-speech.ts:106 (multipart audio read into a buffer, WAV header check, then transcribe at :109)",
+      "storage/framework/core/ai/src/image.ts:283 (fetch of an arbitrary URL) and :291 (readFile of a path)"
+    ],
+    "scope": [
+      "local-speech: scan the uploaded audio after the size check and before `transcribe`, returning 422 on detection",
+      "image: scan fetched and read bytes before base64 encoding; a detection throws a typed error",
+      "Both respect the `ai` switch in `config/malware.ts`"
+    ],
+    "out_of_scope": [
+      "RAG text chunking, which takes text, not files",
+      "SSRF hardening of `image.ts` URL fetches, worth its own issue"
+    ],
+    "notes": [
+      "The transcriber writes a temp file and runs a local process; scanning before that is the cheap place to stop a crafted file"
+    ],
+    "accept": [
+      "EICAR test for each path: the speech endpoint answers 422 for an EICAR body padded into a WAV container, and the image loader throws for EICAR bytes",
+      "Clean inputs behave as before"
+    ]
+  },
+  {
+    "key": "P8.12",
+    "goal": "Agents and developers can find and use malware scanning: a skill, a docs page and a catalog entry that stay in step with the code.",
+    "refs": [
+      "storage/framework/defaults/ai/skills/",
+      "storage/framework/defaults/ai/skills/stacks-native/",
+      "docs/"
+    ],
+    "scope": [
+      "New `stacks-malware` skill: drivers, config, every hooked surface, fail-closed semantics, quarantine, `file().clean()`, and how to run zavd locally",
+      "Docs page under the skills section and a guide page for operators",
+      "Entry in the `stacks-native` generated catalog and CAPABILITIES.md",
+      "AGENTS.md feature table row pointing at the skill"
+    ],
+    "out_of_scope": [
+      "Guardian app docs"
+    ],
+    "accept": [
+      "`buddy docs:native-skills:check` passes",
+      "Every file path the skill cites exists (checked by the existing docs-rot tests)",
+      "No em-dashes in the new prose"
+    ]
+  },
+  {
+    "key": "P8.13",
+    "goal": "Ship the framework with malware scanning so apps get it through `buddy upgrade`.",
+    "refs": [
+      "./buddy release --bump patch"
+    ],
+    "scope": [
+      "Run the whole `core/buddy` suite, the storage, email, validation and ai package suites, lint and typecheck",
+      "Cut the release, wait for the Releaser and CI, verify the published version from `node_modules/@stacksjs/malware/package.json` in a scaffolded app",
+      "Scaffold a fresh app and run an EICAR upload end to end against a local zavd"
+    ],
+    "out_of_scope": [
+      "Upgrading individual apps (P12.13, P12.14)"
+    ],
+    "accept": [
+      "Release published and CI green on the release commit",
+      "Fresh app: EICAR upload refused and quarantined; clean upload stored",
+      "Release notes list every hooked surface"
+    ]
+  },
+  {
+    "key": "P8.14",
+    "goal": "ts-broadcasting can scan binary message payloads before they are dispatched, so a realtime channel cannot be used to relay malware between clients.",
+    "refs": [
+      "packages/ts-broadcasting/src/server.ts:689 (handleMessage)",
+      "packages/ts-broadcasting/src/config.ts (16 MB payload cap)"
+    ],
+    "scope": [
+      "Optional `scan` hook in the server config: a function receiving binary payloads (and optionally text payloads above a size) that returns allow or reject",
+      "A ready-made adapter over `@zig-utils/anti-virus` exported from a subpath so the core has no hard dependency on it",
+      "Rejected messages get an error frame and are counted in metrics; the connection stays open unless configured otherwise"
+    ],
+    "out_of_scope": [
+      "A file-transfer feature, which does not exist"
+    ],
+    "notes": [
+      "Run the hook after rate limiting and before JSON parsing so oversized junk is refused cheaply",
+      "Keep it off by default; chat-style JSON traffic should not pay for it"
+    ],
+    "accept": [
+      "EICAR test: a binary frame containing EICAR is rejected and not broadcast",
+      "Benchmark shows no change when the hook is unset",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.15",
+    "goal": "Files uploaded over ts-sftp are scanned before they become visible under their real name.",
+    "refs": [
+      "src/sftp-session.ts:214 (CLOSE handler), :238 (WRITE handler)",
+      "src/filesystem/local.ts (writes at offsets into the final path)",
+      "src/types.ts:140 (createFileSystem option), src/server.ts:117"
+    ],
+    "scope": [
+      "A `scanningFileSystem(inner, scanner)` wrapper usable through the `createFileSystem` option",
+      "Files opened for writing are staged under a temporary name in the same directory; `close()` scans the staged file and renames it into place on a clean verdict, or deletes it and returns an SFTP failure status",
+      "Reads and listings never show staged files",
+      "An adapter over `@zig-utils/anti-virus`"
+    ],
+    "out_of_scope": [
+      "Changing the default filesystem behaviour when no scanner is configured"
+    ],
+    "notes": [
+      "Today a partial upload is visible under its final name while it is being written; staging fixes that independently of scanning",
+      "Handle a client that never sends CLOSE: staged files expire"
+    ],
+    "accept": [
+      "EICAR test: uploading EICAR over a real SFTP session leaves no file at the target path and the client receives a failure status",
+      "A clean upload appears only after CLOSE",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.16",
+    "goal": "Git LFS objects are scanned before they are stored, and the verdict is cached by object id.",
+    "refs": [
+      "src/storage.ts:131 (write: verifyObject at 132, writeFile and rename at 148-149)",
+      "src/server.ts:207-212 (PUT body read and objects.write)"
+    ],
+    "scope": [
+      "Optional scanner in the store options, called after `verifyObject` succeeds and before the temporary file is written",
+      "Detected objects are refused with a reason the server maps to a 422 batch error",
+      "Verdict cache keyed by oid, so a re-upload of known content is answered without rescanning, and a database update can invalidate it",
+      "Adapter over `@zig-utils/anti-virus`"
+    ],
+    "out_of_scope": [
+      "Scanning objects already in the store (a separate sweep command can follow)"
+    ],
+    "accept": [
+      "EICAR test: a PUT of EICAR with its correct oid is refused and nothing is stored",
+      "Verdict cache test",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.17",
+    "goal": "Restoring a multi-file archive can never write outside the restore target, whatever the archive's entry paths say.",
+    "refs": [
+      "src/restore/index.ts:197 (dest = join(destBase, entry.relativePath))",
+      "src/restore/index.ts (parseArchive, entry paths taken from archive headers)"
+    ],
+    "scope": [
+      "Resolve each entry's destination with `path.resolve(destBase, entry.relativePath)` and refuse any entry whose resolved path is not inside the resolved `destBase`",
+      "Refuse absolute entry paths and entries containing NUL bytes",
+      "Treat a refused entry as a restore error that names the entry, rather than skipping it silently",
+      "Apply the same check to any symlink entries if the format supports them, so a link cannot redirect a later write"
+    ],
+    "out_of_scope": [
+      "Malware scanning on restore (P8.18)"
+    ],
+    "notes": [
+      "Today the entry path from the archive header is joined to the target directory without a containment check, so a tampered archive could place files outside it",
+      "This is a security fix: release it promptly and note it in the changelog"
+    ],
+    "accept": [
+      "Tests with archives whose entries use parent-directory segments, absolute paths and mixed separators: each is refused and nothing is written outside the target",
+      "Normal archives restore exactly as before",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.18",
+    "goal": "Backups are scanned when they are restored, so a compromised snapshot cannot reintroduce malware.",
+    "refs": [
+      "src/restore/index.ts:142-146 (snapshot read and gunzip)",
+      "src/restore/index.ts:204 (writeFile of each archive entry)"
+    ],
+    "scope": [
+      "Optional scanner in the restore options",
+      "Scan a single-file snapshot after decompression, and each archive entry before it is written",
+      "Policy option: abort the whole restore on the first detection (default) or skip infected entries and report them",
+      "A summary of scanned, clean and refused entries in the restore result"
+    ],
+    "out_of_scope": [
+      "Scanning at backup time"
+    ],
+    "accept": [
+      "EICAR test: restoring an archive with one EICAR entry aborts by default and writes nothing; in skip mode it writes the other entries and reports the EICAR one",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.19",
+    "goal": "ts-images notices files that are more than they claim to be: trailing data after a valid image and polyglot files are detected before decoding.",
+    "refs": [
+      "packages/ts-images/src/codecs/index.ts:94 (detectFormat, magic bytes at offset 0 only)",
+      "packages/ts-images/src/codecs/index.ts decode()"
+    ],
+    "scope": [
+      "Find the logical end of each supported format (JPEG EOI, PNG IEND, GIF trailer, WebP and ISOBMFF box lengths, BMP size field) and report trailing bytes",
+      "Detect embedded container signatures in the trailing data (zip, HTML, script, PE, ELF) and expose `inspect(buffer)` returning format, trailing length and embedded types",
+      "Optional pre-decode scan hook so callers can run `@zig-utils/anti-virus` before a decoder touches untrusted bytes",
+      "The same entry points in ts-heic, ts-avif and ts-videos get the pre-decode hook (separate small PRs in those repositories, linked here)"
+    ],
+    "out_of_scope": [
+      "Changing decode behaviour for files without trailing data"
+    ],
+    "notes": [
+      "Default is report-only so existing callers keep working; `strict: true` refuses images with trailing data"
+    ],
+    "accept": [
+      "Fixtures: JPEG with an appended zip, PNG with appended HTML, and a clean image of each format; each is classified correctly",
+      "EICAR appended to a PNG is reported by the pre-decode hook",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.20",
+    "goal": "rpx can scan request bodies per route before they reach the upstream app, so an app behind the proxy is protected even if it does not scan itself.",
+    "refs": [
+      "packages/rpx/src/proxy-handler.ts:57 (per-route options, next to imgx)",
+      "packages/rpx/src/proxy-handler.ts:528 (proxyViaPool with body: req.body)",
+      "packages/rpx/src/proxy-pool.ts (streaming uploads fall back)"
+    ],
+    "scope": [
+      "Per-route `scan` option: content types to inspect (default multipart/form-data and application/octet-stream), maximum bytes, fail-open or fail-closed",
+      "Tee the body to a streaming scan through `@zig-utils/anti-virus` or a zavd socket while buffering up to the limit, then forward on a clean verdict or answer 403/413",
+      "Multipart parts are scanned individually so the verdict can name the field",
+      "Metrics for scanned, refused and over-limit requests"
+    ],
+    "out_of_scope": [
+      "The Zig dataplane path (P9.11)"
+    ],
+    "notes": [
+      "Bodies over the limit follow the route's policy; the default is to refuse, since an attacker who can opt out of inspection by padding has defeated it"
+    ],
+    "accept": [
+      "EICAR test: a multipart POST with an EICAR part to a scanning route returns 403 and the upstream never sees it",
+      "A clean upload is forwarded byte-identical",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P8.21",
+    "goal": "zig-sftp gains a real write path, and files written through it are staged and scanned before they appear.",
+    "refs": [
+      "src/protocol.zig:36 (write = 6, no handler today)",
+      "src/server.zig:146 (closeHandle)",
+      "bin/sftp.zig serve command (prints a line and exits)"
+    ],
+    "scope": [
+      "Implement OPEN with write flags, WRITE at offsets, CLOSE and the serve loop over stdin and stdout so the server is usable",
+      "Writes go to a staged temporary file next to the target; CLOSE scans it through the zig-anti-virus library (in process, as a zon dependency behind a build option) and renames on a clean verdict",
+      "Detected files are deleted and the client receives SSH_FX_FAILURE with a message",
+      "Path confinement stays enforced for staged names"
+    ],
+    "out_of_scope": [
+      "SFTP v4 and later extensions"
+    ],
+    "accept": [
+      "Integration test with an SFTP client: EICAR upload is refused and absent, clean upload appears after CLOSE",
+      "Fuzz test for the new packet handlers",
+      "`zig build test` green"
+    ]
+  },
+  {
+    "key": "P9.07",
+    "goal": "Hosts that embed zig-waf through its C ABI can register plugin operators, so `@inspectFile` and other host-provided operators work in the rpx dataplane and the proxy connectors, not only for Zig embedders.",
+    "refs": [
+      "src/plugin.zig (Operator, Outcome, the unavailable rule)",
+      "src/c_api.zig:57-392 (current exports; none registers a plugin)",
+      "docs/plugins.md, docs/c-abi.md"
+    ],
+    "scope": [
+      "`zig_waf_register_operator(waf_config, name, context, callback)` where the callback returns matched, not matched or unavailable, mirroring `plugin.Operator`",
+      "Registration happens on the config before compilation, so a rule naming an unregistered operator still fails to compile",
+      "Feature bit in `zig_waf_query_features` and an ABI minor version bump with struct-size negotiation per docs/c-abi.md",
+      "Header and docs updated; C test harness exercises the path"
+    ],
+    "out_of_scope": [
+      "Any specific operator implementation (P9.08)"
+    ],
+    "notes": [
+      "The callback runs on the request path and must not block; document the same contract plugin.zig states",
+      "Ownership: neither parameter nor input outlives the call"
+    ],
+    "accept": [
+      "C test: a registered operator is called with the right parameter and input, and an unavailable answer is counted",
+      "A rule using an unregistered operator fails to compile through the C ABI",
+      "Existing ABI tests and evidence green"
+    ]
+  },
+  {
+    "key": "P9.08",
+    "goal": "zig-waf can run the Guardian engine as its `@inspectFile` operator in process, so uploads are scanned at the edge without a daemon round trip.",
+    "refs": [
+      "src/plugin.zig",
+      "src/engine.zig:2228 (parseMultipartBody), :3132 (addFileMetadata, FILES_TMPNAMES)",
+      "src/request_buffer.zig (FileSink spooling)"
+    ],
+    "scope": [
+      "Optional build dependency on zig-anti-virus through build.zig.zon, behind `-Dguardian`",
+      "A `guardian` plugin operator: `@inspectFile guardian` scans the spooled file (or in-memory part) with a shared engine and per-thread scratch",
+      "Bounded work: the operator applies the engine's size and time budgets and answers unavailable when exceeded, which the engine counts",
+      "Example rule and docs: `SecRule FILES_TMPNAMES \"@inspectFile guardian\" ...` with CRS-compatible ids",
+      "Database reload follows the engine's epoch swap so the WAF never pauses"
+    ],
+    "out_of_scope": [
+      "rpx dataplane wiring (P9.11)"
+    ],
+    "notes": [
+      "plugin.zig says plugins must not block; scanning a local spooled file is CPU-bound and bounded, which fits, but large files must respect the budget rather than stall a worker",
+      "Builds without `-Dguardian` must be byte-identical to today's"
+    ],
+    "accept": [
+      "Test: a multipart request carrying EICAR matches the rule; a clean file does not",
+      "Budget test: an oversized file answers unavailable and is counted",
+      "Evidence and benchmarks unchanged in builds without the option"
+    ]
+  },
+  {
+    "key": "P9.09",
+    "goal": "zig-waf's phrase operators run on the shared zig-regex literals engine, so the WAF and the anti-virus engine maintain one optimised multi-literal matcher.",
+    "refs": [
+      "src/phrase.zig (current Aho-Corasick, ASCII case-folded)",
+      "src/operators.zig:529-559 (PhraseOperator compile paths)",
+      "zig-regex literals module (Teddy, Aho-Corasick, split-block Bloom)"
+    ],
+    "scope": [
+      "Replace `phrase.build` in `@pm`, `@pmFromFile` and `@pmf` with the zig-regex literals API, using case folding and pattern ids",
+      "Keep the existing `phrase.Limits` semantics (pattern count and size bounds) through the new API",
+      "Delete phrase.zig once nothing uses it, or keep it as a thin adapter if the matrix tooling needs it"
+    ],
+    "out_of_scope": [
+      "Changing operator semantics"
+    ],
+    "notes": [
+      "Adoption rule: CRS FTW, the SecRules Test Set, and the ModSecurity and Coraza differential suites must produce identical results, and the benchmark laboratory must show no regression. If either fails, the change does not land and the gap is filed against zig-regex"
+    ],
+    "accept": [
+      "Identical evidence across the compatibility suites before and after",
+      "Benchmark laboratory shows equal or better throughput for phrase-heavy CRS rules",
+      "`zig build test` and the evidence checks green"
+    ]
+  },
+  {
+    "key": "P9.10",
+    "goal": "Decide, with evidence, whether zig-waf's multipart parser should move onto zig-mime so the WAF, the mail server and the anti-virus engine share one parser.",
+    "refs": [
+      "src/multipart.zig",
+      "src/engine.zig:2228 (parseMultipartBody)",
+      "zig-utils/zig-mime"
+    ],
+    "scope": [
+      "Prototype the multipart body processor on zig-mime behind a build option",
+      "Run the multipart sections of the SecRules Test Set, CRS FTW, and the ModSecurity and Coraza differential suites against both parsers",
+      "Compare strictness flags (MULTIPART_STRICT_ERROR and friends) one by one",
+      "Write the result as an ADR in docs/adr: adopt, adopt with changes to zig-mime, or keep the current parser"
+    ],
+    "out_of_scope": [
+      "Shipping the switch unless the evidence is identical"
+    ],
+    "notes": [
+      "The WAF's multipart parser must flag evasions ModSecurity flags; a more tolerant parser is a regression here even if it is better for mail"
+    ],
+    "accept": [
+      "ADR committed with the comparison table",
+      "If adopted: identical evidence and no benchmark regression; if not: the gaps filed as issues in zig-mime"
+    ]
+  },
+  {
+    "key": "P9.11",
+    "goal": "The rpx Zig dataplane inspects every upload, including large, chunked and close-framed bodies, and scans files through the WAF's Guardian operator.",
+    "refs": [
+      "packages/rpx/dataplane/src/main.zig:37 (BODY_CAP 128 KiB when built with WAF), :202",
+      "packages/rpx/dataplane/src/waf_engine.zig:67-85 (inspectRequest, write and process request body)",
+      "packages/rpx/dataplane/build.zig (-Dwaf)",
+      "packages/rpx/dataplane/README.md (bodies past the cap stream uninspected)"
+    ],
+    "scope": [
+      "Spool request bodies past the in-memory cap to a temporary file using zig-waf's request buffering, up to a configured maximum",
+      "Decode chunked transfer encoding before inspection; refuse close-framed request bodies or spool them with the same limit",
+      "Register the Guardian `@inspectFile` operator through the C ABI (P9.07, P9.08) and ship a default rule for upload scanning",
+      "Over-limit policy: refuse with 413 by default, configurable per site",
+      "Metrics for spooled, scanned and refused requests"
+    ],
+    "out_of_scope": [
+      "The TypeScript proxy path (P8.20)"
+    ],
+    "notes": [
+      "Spooling must keep the dataplane's memory flat under concurrent large uploads"
+    ],
+    "accept": [
+      "EICAR test: a 50 MB chunked multipart upload with an EICAR part is refused at the dataplane",
+      "Memory stays bounded with 100 concurrent 50 MB uploads",
+      "Clean uploads are forwarded byte-identical"
+    ]
+  },
+  {
+    "key": "P9.30",
+    "goal": "One Stacks config drives the web firewall on every deploy target: a `security.waf` section that buddy passes to ts-cloud's zig-waf generator on box deploys.",
+    "refs": [
+      "storage/framework/core/types/src/security.ts",
+      "config/security.ts (firewall section, used for AWS deploys today)",
+      "storage/framework/core/buddy/src/commands/deploy.ts",
+      "ts-cloud packages/core/src/types.ts ComputeWafConfig"
+    ],
+    "scope": [
+      "Find how box deploys reach ts-cloud's `compute.waf` today (Stacks types have no waf field; apps set it in config/cloud.ts) and document it in the issue before changing anything",
+      "Add `waf: { mode, paranoiaLevel, inboundThreshold, outboundThreshold, maxBodyBytes, bypassPaths, exclusions }` to `SecurityConfig` with detection mode as the default",
+      "buddy maps it into ts-cloud's compute WAF config on box deploys and into the AWS WAF settings on AWS deploys where an equivalent exists, warning for options a target cannot express",
+      "Docs in the security and deploy skills"
+    ],
+    "out_of_scope": [
+      "Extending ts-cloud's ComputeWafConfig (P9.31)"
+    ],
+    "notes": [
+      "Never switch a site to blocking implicitly; the default stays detection, matching ts-cloud's stated policy"
+    ],
+    "accept": [
+      "Test: a `security.waf` config produces the expected ts-cloud compute config in a deploy dry run",
+      "Test: AWS deploys keep their current behaviour when `waf` is unset",
+      "Typecheck and the buddy suite green"
+    ]
+  },
+  {
+    "key": "P9.31",
+    "goal": "ts-cloud accepts the full WAF config from Stacks, including exclusions, and ships zig-waf audit events to Guardian so detection logs are actually read.",
+    "refs": [
+      "packages/ts-cloud/src/protection/waf.ts (WafConfig, WafRuleExclusion, config generation)",
+      "packages/core/src/types.ts ComputeWafConfig (mode, paranoiaLevel, inboundThreshold, bypassPaths only)"
+    ],
+    "scope": [
+      "Extend `ComputeWafConfig` with `outboundThreshold`, `maxBodyBytes`, `rejectOversizedBody`, `exclusions` and `customRules`, passed through to the generator",
+      "Configure zig-waf's HTTPS audit writer (OCSF) to post to a Guardian ingest URL with a per-host token, when configured",
+      "Keep the local audit log as the fallback and rotate it",
+      "Validation and escaping stay as in waf.ts (escapeSecLang, regex safety)"
+    ],
+    "out_of_scope": [
+      "Guardian's ingest endpoint (P10.02)"
+    ],
+    "notes": [
+      "Exclusions arrive from the Guardian wizard as reviewed config changes; ts-cloud only renders them"
+    ],
+    "accept": [
+      "Tests: exclusions render as SecRule removals scoped to their path pattern; injection attempts in reasons and patterns are escaped",
+      "Test: audit forwarding config is emitted only when a Guardian URL and token are present",
+      "Released with `bun run release:patch`"
+    ]
+  },
+  {
+    "key": "P9.32",
+    "goal": "Stacks apps that are not behind rpx (local development, serverless) can still run zig-waf in process through an optional router middleware.",
+    "refs": [
+      "storage/framework/core/router/src/",
+      "zig-waf src/c_api.zig and its release workflow (prebuilt libraries per target)"
+    ],
+    "scope": [
+      "Package `@stacksjs/waf` with a bun:ffi wrapper over the zig-waf C ABI, finding a local build or a prebuilt library",
+      "Router middleware that feeds connection, URI, headers and body into a transaction and applies the intervention",
+      "Reads `security.waf` (P9.30); detection mode by default, logging matches",
+      "Off by default, and skipped automatically when a request is known to have passed through rpx's WAF"
+    ],
+    "out_of_scope": [
+      "Response-body inspection in the first version"
+    ],
+    "notes": [
+      "Measure added latency per request and publish it in the docs"
+    ],
+    "accept": [
+      "Test: a request carrying a CRS-detected SQL injection payload is logged in detection mode and refused in blocking mode",
+      "Latency benchmark committed",
+      "Docs in the security skill"
+    ]
+  }
+]
