@@ -36,7 +36,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@cdb82193cb344c2b881a88ea79f88243f5522e0f # v0.11.75
+        uses: pantry-pm/pantry/packages/action@89b61b513ed45d7d4b3fe4345609aac69bf6101a # v0.11.213
         with:
           install: 'false'
       - run: bun install --frozen-lockfile --ignore-scripts
@@ -80,7 +80,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@cdb82193cb344c2b881a88ea79f88243f5522e0f # v0.11.75
+        uses: pantry-pm/pantry/packages/action@89b61b513ed45d7d4b3fe4345609aac69bf6101a # v0.11.213
         with:
           install: 'false'
       - run: bun install --frozen-lockfile --ignore-scripts
@@ -124,7 +124,7 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
       - name: Setup Pantry
-        uses: pantry-pm/pantry/packages/action@cdb82193cb344c2b881a88ea79f88243f5522e0f # v0.11.75
+        uses: pantry-pm/pantry/packages/action@89b61b513ed45d7d4b3fe4345609aac69bf6101a # v0.11.213
         with:
           install: 'false'
       - run: bun install --frozen-lockfile --ignore-scripts
