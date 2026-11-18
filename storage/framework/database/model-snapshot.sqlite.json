@@ -147,6 +147,15 @@
             "isUnique": true,
             "isNullable": true,
             "hasDefault": false
+          },
+          {
+            "name": "inventory_run",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false,
+            "maxLength": 64
           }
         ],
         "indexes": [
@@ -459,6 +468,15 @@
             "isUnique": true,
             "isNullable": true,
             "hasDefault": false
+          },
+          {
+            "name": "finding_key",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false,
+            "maxLength": 255
           }
         ],
         "indexes": [
@@ -471,17 +489,17 @@
             "type": "index"
           },
           {
-            "name": "findings_host_check",
-            "columns": [
-              "host_id",
-              "check"
-            ],
-            "type": "index"
-          },
-          {
             "name": "findings_uuid_unique",
             "columns": [
               "uuid"
+            ],
+            "type": "unique"
+          },
+          {
+            "name": "findings_host_finding_key_unique",
+            "columns": [
+              "host_id",
+              "finding_key"
             ],
             "type": "unique"
           }
@@ -597,6 +615,48 @@
             "isUnique": true,
             "isNullable": true,
             "hasDefault": false
+          },
+          {
+            "name": "node_id",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false,
+            "maxLength": 64
+          },
+          {
+            "name": "credential_hash",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "maxLength": 64
+          },
+          {
+            "name": "credential_rotated_at",
+            "type": "datetime",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
+          },
+          {
+            "name": "revoked_at",
+            "type": "datetime",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
+          },
+          {
+            "name": "protection",
+            "type": "json",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
           }
         ],
         "indexes": [
@@ -613,6 +673,20 @@
               "uuid"
             ],
             "type": "unique"
+          },
+          {
+            "name": "hosts_node_id_unique",
+            "columns": [
+              "node_id"
+            ],
+            "type": "unique"
+          },
+          {
+            "name": "hosts_credential_hash",
+            "columns": [
+              "credential_hash"
+            ],
+            "type": "index"
           }
         ]
       },
@@ -970,6 +1044,15 @@
             "isUnique": true,
             "isNullable": true,
             "hasDefault": false
+          },
+          {
+            "name": "scan_key",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false,
+            "maxLength": 64
           }
         ],
         "indexes": [
@@ -985,6 +1068,14 @@
             "name": "scans_uuid_unique",
             "columns": [
               "uuid"
+            ],
+            "type": "unique"
+          },
+          {
+            "name": "scans_host_scan_key_unique",
+            "columns": [
+              "host_id",
+              "scan_key"
             ],
             "type": "unique"
           }
@@ -1216,6 +1307,15 @@
             "isUnique": true,
             "isNullable": true,
             "hasDefault": false
+          },
+          {
+            "name": "event_id",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false,
+            "maxLength": 128
           }
         ],
         "indexes": [
@@ -1241,12 +1341,105 @@
               "uuid"
             ],
             "type": "unique"
+          },
+          {
+            "name": "waf_events_host_event_unique",
+            "columns": [
+              "host_id",
+              "event_id"
+            ],
+            "type": "unique"
+          }
+        ]
+      },
+      {
+        "table": "enrolment_tokens",
+        "columns": [
+          {
+            "name": "id",
+            "type": "bigint",
+            "isPrimaryKey": true,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false
+          },
+          {
+            "name": "token_hash",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false,
+            "maxLength": 64
+          },
+          {
+            "name": "label",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "maxLength": 255
+          },
+          {
+            "name": "expires_at",
+            "type": "datetime",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": false
+          },
+          {
+            "name": "used_at",
+            "type": "datetime",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
+          },
+          {
+            "name": "host_id",
+            "type": "bigint",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "references": {
+              "table": "hosts",
+              "column": "id"
+            }
+          },
+          {
+            "name": "created_at",
+            "type": "datetime",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": false,
+            "hasDefault": true,
+            "defaultValue": "UTC_TIMESTAMP"
+          },
+          {
+            "name": "updated_at",
+            "type": "datetime",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
+          }
+        ],
+        "indexes": [
+          {
+            "name": "enrolment_tokens_hash_unique",
+            "columns": [
+              "token_hash"
+            ],
+            "type": "unique"
           }
         ]
       }
     ]
   },
-  "hash": "0e6642d05873ad5fce317159bdf98142744d9ab264a05971e0fb73478c04f0a7",
+  "hash": "a0e0c92188fd3b47b112ea78fc17c78d14e988df7f4a720eceefd65922684284",
   "dialect": "sqlite",
-  "updatedAt": "2026-11-18T05:04:41.648Z"
+  "updatedAt": "2026-11-18T05:08:43.788Z"
 }

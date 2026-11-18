@@ -8,8 +8,8 @@ import ScanModel from '../../app/Models/Scan'
 import WafEventModel from '../../app/Models/WafEvent'
 
 describe('Guardian domain models', () => {
-  it('relate hosts to their scans, findings, CVE exposure and WAF events', () => {
-    expect(HostModel.getDefinition().hasMany).toEqual(['Scan', 'Finding', 'CveExposure', 'WafEvent'])
+  it('relate hosts to their scans, findings, CVE exposure, WAF events and enrolment tokens', () => {
+    expect(HostModel.getDefinition().hasMany).toEqual(['Scan', 'Finding', 'CveExposure', 'WafEvent', 'EnrolmentToken'])
     expect(ScanModel.getDefinition().hasMany).toEqual(['Detection'])
     expect(DetectionModel.getDefinition().hasOne).toEqual(['QuarantineItem'])
   })

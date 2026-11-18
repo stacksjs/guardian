@@ -12,8 +12,10 @@ export default defineModel({
     useTimestamps: true,
     useSeeder: { count: 30 },
   },
-  indexes: [{ name: 'findings_host_last_seen', columns: ['host_id', 'last_seen_at'] }, { name: 'findings_host_check', columns: ['host_id', 'check'] }],
+  indexes: [{ name: 'findings_host_last_seen', columns: ['host_id', 'last_seen_at'] }, { name: 'findings_host_finding_key_unique', columns: ['host_id', 'finding_key'], unique: true }],
   attributes: {
+    /** Stable id from the agent (check plus subject), so a repeated finding updates last seen. */
+    findingKey: { required: true, fillable: true, validation: { rule: schema.string().max(255) }, factory: faker => faker.string.uuid() },
     check: { required: true, fillable: true, validation: { rule: schema.string().max(120) }, factory: faker => faker.helpers.arrayElement(['process.tmp_executable', 'network.reverse_shell', 'kernel.unsigned_module', 'ssh.password_auth', 'persistence.cron_download']) },
     category: { required: true, fillable: true, validation: { rule: schema.enum(['malware', 'network', 'kernel', 'persistence', 'privilege', 'hardening', 'integrity']) }, factory: faker => faker.helpers.arrayElement(['malware', 'network', 'hardening', 'persistence']) },
     severity: { required: true, fillable: true, default: 'medium', validation: { rule: schema.enum([...SEVERITIES]) }, factory: faker => faker.helpers.arrayElement([...SEVERITIES]) },

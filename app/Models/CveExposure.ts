@@ -14,6 +14,8 @@ export default defineModel({
   },
   indexes: [{ name: 'cve_exposures_host_cve_package', columns: ['host_id', 'cve_id', 'package'], unique: true }],
   attributes: {
+    /** The inventory run that reported this exposure; each run replaces the host's whole set. */
+    inventoryRun: { required: true, fillable: true, validation: { rule: schema.string().max(64) }, factory: faker => faker.string.uuid() },
     package: { required: true, fillable: true, validation: { rule: schema.string().max(255) }, factory: faker => faker.helpers.arrayElement(['openssl', 'nginx', 'sudo', 'glibc', 'lodash', 'xz-utils']) },
     ecosystem: { required: true, fillable: true, validation: { rule: schema.enum(['dpkg', 'rpm', 'apk', 'homebrew', 'pantry', 'npm', 'pypi', 'go', 'cargo', 'macos-app']) }, factory: faker => faker.helpers.arrayElement(['dpkg', 'npm']) },
     installedVersion: { required: true, fillable: true, validation: { rule: schema.string().max(120) }, factory: faker => faker.system.semver() },

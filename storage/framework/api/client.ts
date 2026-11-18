@@ -249,13 +249,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/analytics/commerce
-   */
-  getAnalyticsCommerce(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/analytics/commerce", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/analytics/countries
    */
   getAnalyticsCountries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -298,941 +291,10 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/analytics/sales
-   */
-  getAnalyticsSales(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/analytics/sales", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/analytics/web
    */
   getAnalyticsWeb(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/api/analytics/web", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/cart
-   */
-  getCart(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/cart", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/cart/add
-   */
-  postCartAdd(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/cart/add", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/cart/discount
-   */
-  postCartDiscount(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/cart/discount", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/cart/update
-   */
-  postCartUpdate(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/cart/update", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/checkout/contact
-   */
-  postCheckoutContact(input: { body: { "email": string } }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/checkout/contact", input ?? {}, [], {"required":true,"content":["application/json"]}, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/checkout/place
-   */
-  postCheckoutPlace(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/checkout/place", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/checkout/shipping
-   */
-  postCheckoutShipping(input: { body: { "shipping_name": string; "shipping_address": string; "shipping_city": string; "shipping_state": string; "shipping_zip": string } }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/checkout/shipping", input ?? {}, [], {"required":true,"content":["application/json"]}, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/coupons
-   */
-  getCommerceCoupons(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/coupons", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/coupons
-   */
-  postCommerceCoupons(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/coupons", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/coupons/{id}
-   */
-  getCommerceCouponsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/coupons/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/coupons/{id}
-   */
-  deleteCommerceCouponsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/coupons/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/coupons/{id}
-   */
-  patchCommerceCouponsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/coupons/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/couriers
-   */
-  getCommerceCouriers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/couriers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/couriers
-   */
-  postCommerceCouriers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/couriers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/couriers/{id}
-   */
-  getCommerceCouriersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/couriers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/couriers/{id}
-   */
-  deleteCommerceCouriersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/couriers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/couriers/{id}
-   */
-  patchCommerceCouriersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/couriers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/customers
-   */
-  getCommerceCustomers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/customers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/customers
-   */
-  postCommerceCustomers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/customers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/customers/{id}
-   */
-  getCommerceCustomersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/customers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/customers/{id}
-   */
-  deleteCommerceCustomersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/customers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/customers/{id}
-   */
-  patchCommerceCustomersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/customers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/dashboard
-   */
-  getCommerceDashboard(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/dashboard", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/delivery-routes
-   */
-  getCommerceDeliveryRoutes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/delivery-routes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/delivery-routes
-   */
-  postCommerceDeliveryRoutes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/delivery-routes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/delivery-routes/{id}
-   */
-  getCommerceDeliveryRoutesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/delivery-routes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/delivery-routes/{id}
-   */
-  deleteCommerceDeliveryRoutesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/delivery-routes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/delivery-routes/{id}
-   */
-  patchCommerceDeliveryRoutesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/delivery-routes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/digital-deliveries
-   */
-  getCommerceDigitalDeliveries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/digital-deliveries", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/digital-deliveries
-   */
-  postCommerceDigitalDeliveries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/digital-deliveries", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/digital-deliveries/{id}
-   */
-  getCommerceDigitalDeliveriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/digital-deliveries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/digital-deliveries/{id}
-   */
-  deleteCommerceDigitalDeliveriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/digital-deliveries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/digital-deliveries/{id}
-   */
-  patchCommerceDigitalDeliveriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/digital-deliveries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/gift-cards
-   */
-  getCommerceGiftCards(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/gift-cards", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/gift-cards
-   */
-  postCommerceGiftCards(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/gift-cards", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/gift-cards/stats
-   */
-  getCommerceGiftCardsStats(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/gift-cards/stats", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/gift-cards/{id}
-   */
-  getCommerceGiftCardsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/gift-cards/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/gift-cards/{id}
-   */
-  deleteCommerceGiftCardsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/gift-cards/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/gift-cards/{id}
-   */
-  patchCommerceGiftCardsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/gift-cards/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/gift-cards/{id}/balance
-   */
-  patchCommerceGiftCardsIdBalance(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/gift-cards/{id}/balance", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/license-keys
-   */
-  getCommerceLicenseKeys(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/license-keys", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/license-keys
-   */
-  postCommerceLicenseKeys(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/license-keys", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/license-keys/{id}
-   */
-  getCommerceLicenseKeysId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/license-keys/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/license-keys/{id}
-   */
-  deleteCommerceLicenseKeysId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/license-keys/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/license-keys/{id}
-   */
-  patchCommerceLicenseKeysId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/license-keys/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/orders
-   */
-  getCommerceOrders(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/orders", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/orders
-   */
-  postCommerceOrders(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/orders", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/orders/export
-   */
-  getCommerceOrdersExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/orders/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/orders/{id}
-   */
-  getCommerceOrdersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/orders/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/orders/{id}
-   */
-  deleteCommerceOrdersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/orders/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/orders/{id}
-   */
-  patchCommerceOrdersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/orders/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/payment-stats
-   */
-  getCommercePaymentStats(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/payment-stats", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/payment-trends
-   */
-  getCommercePaymentTrends(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/payment-trends", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/payments
-   */
-  getCommercePayments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/payments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/payments
-   */
-  postCommercePayments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/payments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/payments/{id}
-   */
-  getCommercePaymentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/payments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/payments/{id}
-   */
-  deleteCommercePaymentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/payments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/payments/{id}
-   */
-  patchCommercePaymentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/payments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/pos
-   */
-  getCommercePos(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/pos", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/print-devices
-   */
-  getCommercePrintDevices(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/print-devices", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/print-devices
-   */
-  postCommercePrintDevices(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/print-devices", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/print-devices/{id}
-   */
-  getCommercePrintDevicesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/print-devices/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/print-devices/{id}
-   */
-  deleteCommercePrintDevicesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/print-devices/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/print-devices/{id}
-   */
-  patchCommercePrintDevicesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/print-devices/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/product-categories
-   */
-  getCommerceProductCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/product-categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/product-categories
-   */
-  postCommerceProductCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/product-categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/product-manufacturers
-   */
-  getCommerceProductManufacturers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/product-manufacturers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/product-manufacturers
-   */
-  postCommerceProductManufacturers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/product-manufacturers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/product-manufacturers/{id}
-   */
-  getCommerceProductManufacturersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/product-manufacturers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/product-manufacturers/{id}
-   */
-  deleteCommerceProductManufacturersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/product-manufacturers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/product-manufacturers/{id}
-   */
-  patchCommerceProductManufacturersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/product-manufacturers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products
-   */
-  getCommerceProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/products
-   */
-  postCommerceProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/reviews
-   */
-  getCommerceProductsReviews(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/reviews", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/products/reviews
-   */
-  postCommerceProductsReviews(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/products/reviews", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/reviews/{id}
-   */
-  getCommerceProductsReviewsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/reviews/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/products/reviews/{id}
-   */
-  deleteCommerceProductsReviewsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/products/reviews/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/products/reviews/{id}
-   */
-  patchCommerceProductsReviewsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/products/reviews/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/units
-   */
-  getCommerceProductsUnits(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/units", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/products/units
-   */
-  postCommerceProductsUnits(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/products/units", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/units/{id}
-   */
-  getCommerceProductsUnitsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/units/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/products/units/{id}
-   */
-  deleteCommerceProductsUnitsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/products/units/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/products/units/{id}
-   */
-  patchCommerceProductsUnitsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/products/units/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/variants
-   */
-  getCommerceProductsVariants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/variants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/products/variants
-   */
-  postCommerceProductsVariants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/products/variants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/variants/{id}
-   */
-  getCommerceProductsVariantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/variants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/products/variants/{id}
-   */
-  deleteCommerceProductsVariantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/products/variants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/products/variants/{id}
-   */
-  patchCommerceProductsVariantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/products/variants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/{id}
-   */
-  getCommerceProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/products/{id}
-   */
-  deleteCommerceProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/products/{id}
-   */
-  patchCommerceProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/products/{productId}/variants
-   */
-  getCommerceProductsProductIdVariants(input: { "productId": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/products/{productId}/variants", input ?? {}, [{"name":"productId","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/receipts
-   */
-  getCommerceReceipts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/receipts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/receipts
-   */
-  postCommerceReceipts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/receipts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/receipts/{id}
-   */
-  getCommerceReceiptsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/receipts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/receipts/{id}
-   */
-  deleteCommerceReceiptsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/receipts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/receipts/{id}
-   */
-  patchCommerceReceiptsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/receipts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/shipping-methods
-   */
-  getCommerceShippingMethods(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/shipping-methods", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/shipping-methods
-   */
-  postCommerceShippingMethods(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/shipping-methods", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/shipping-methods/{id}
-   */
-  getCommerceShippingMethodsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/shipping-methods/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/shipping-methods/{id}
-   */
-  deleteCommerceShippingMethodsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/shipping-methods/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/shipping-methods/{id}
-   */
-  patchCommerceShippingMethodsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/shipping-methods/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/shipping-rates
-   */
-  getCommerceShippingRates(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/shipping-rates", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/shipping-rates
-   */
-  postCommerceShippingRates(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/shipping-rates", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/shipping-rates/{id}
-   */
-  getCommerceShippingRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/shipping-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/shipping-rates/{id}
-   */
-  deleteCommerceShippingRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/shipping-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/shipping-rates/{id}
-   */
-  patchCommerceShippingRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/shipping-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/shipping-zones
-   */
-  getCommerceShippingZones(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/shipping-zones", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/shipping-zones
-   */
-  postCommerceShippingZones(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/shipping-zones", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/shipping-zones/{id}
-   */
-  getCommerceShippingZonesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/shipping-zones/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/shipping-zones/{id}
-   */
-  deleteCommerceShippingZonesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/shipping-zones/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/shipping-zones/{id}
-   */
-  patchCommerceShippingZonesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/shipping-zones/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/tax-rates
-   */
-  getCommerceTaxRates(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/tax-rates", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/tax-rates
-   */
-  postCommerceTaxRates(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/tax-rates", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/tax-rates/{id}
-   */
-  getCommerceTaxRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/tax-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/tax-rates/{id}
-   */
-  deleteCommerceTaxRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/tax-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/tax-rates/{id}
-   */
-  patchCommerceTaxRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/tax-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/products
-   */
-  getCommerceWaitlistProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/waitlist/products
-   */
-  postCommerceWaitlistProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/waitlist/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/products/analytics
-   */
-  getCommerceWaitlistProductsAnalytics(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/products/analytics", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/products/quantity-distribution
-   */
-  getCommerceWaitlistProductsQuantityDistribution(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/products/quantity-distribution", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/products/status
-   */
-  getCommerceWaitlistProductsStatus(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/products/status", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/products/time-series
-   */
-  getCommerceWaitlistProductsTimeSeries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/products/time-series", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/products/{id}
-   */
-  getCommerceWaitlistProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/waitlist/products/{id}
-   */
-  deleteCommerceWaitlistProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/waitlist/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/waitlist/products/{id}
-   */
-  patchCommerceWaitlistProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/waitlist/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/restaurants
-   */
-  getCommerceWaitlistRestaurants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/restaurants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/commerce/waitlist/restaurants
-   */
-  postCommerceWaitlistRestaurants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/commerce/waitlist/restaurants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/restaurants/dashboard
-   */
-  getCommerceWaitlistRestaurantsDashboard(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/restaurants/dashboard", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/commerce/waitlist/restaurants/{id}
-   */
-  getCommerceWaitlistRestaurantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/commerce/waitlist/restaurants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/commerce/waitlist/restaurants/{id}
-   */
-  deleteCommerceWaitlistRestaurantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/commerce/waitlist/restaurants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/commerce/waitlist/restaurants/{id}
-   */
-  patchCommerceWaitlistRestaurantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/commerce/waitlist/restaurants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -1257,13 +319,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/dashboard/analytics/sales
-   */
-  getDashboardAnalyticsSales(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/analytics/sales", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/dashboard/analytics/web
    */
   getDashboardAnalyticsWeb(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -1278,41 +333,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/dashboard/authors
-   */
-  getDashboardAuthors(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/authors", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/authors
-   */
-  postDashboardAuthors(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/authors", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/authors/{id}
-   */
-  deleteDashboardAuthorsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/authors/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/authors/{id}
-   */
-  patchDashboardAuthorsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/authors/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/billing
-   */
-  getDashboardBilling(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/billing", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/dashboard/blog
    */
   getDashboardBlog(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -1324,20 +344,6 @@ export function createClient(config: ClientConfig) {
    */
   postDashboardBlog(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "POST", "/api/dashboard/blog", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/blog/{slug}
-   */
-  getDashboardBlogSlug(input: { "slug": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/blog/{slug}", input ?? {}, [{"name":"slug","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/blog/{slug}
-   */
-  deleteDashboardBlogSlug(input: { "slug": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/blog/{slug}", input ?? {}, [{"name":"slug","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -1366,27 +372,6 @@ export function createClient(config: ClientConfig) {
    */
   postDashboardBuddyChatClear(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "POST", "/api/dashboard/buddy/chat/clear", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/categories
-   */
-  getDashboardCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/categories
-   */
-  postDashboardCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/categories/{id}
-   */
-  deleteDashboardCategoriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/categories/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -1422,888 +407,6 @@ export function createClient(config: ClientConfig) {
    */
   getDashboardCloud(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/api/dashboard/cloud", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/comments
-   */
-  getDashboardComments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/comments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/comments/{id}
-   */
-  deleteDashboardCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/comments/{id}
-   */
-  patchDashboardCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/categories
-   */
-  getDashboardCommerceCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/categories
-   */
-  postDashboardCommerceCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/categories/{id}
-   */
-  deleteDashboardCommerceCategoriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/categories/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/categories/{id}
-   */
-  patchDashboardCommerceCategoriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/categories/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/coupons
-   */
-  getDashboardCommerceCoupons(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/coupons", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/coupons
-   */
-  postDashboardCommerceCoupons(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/coupons", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/coupons/export
-   */
-  getDashboardCommerceCouponsExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/coupons/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/coupons/{id}
-   */
-  deleteDashboardCommerceCouponsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/coupons/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/coupons/{id}
-   */
-  patchDashboardCommerceCouponsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/coupons/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/couriers
-   */
-  getDashboardCommerceCouriers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/couriers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/couriers
-   */
-  postDashboardCommerceCouriers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/couriers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/couriers/{id}
-   */
-  getDashboardCommerceCouriersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/couriers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/couriers/{id}
-   */
-  deleteDashboardCommerceCouriersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/couriers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/couriers/{id}
-   */
-  patchDashboardCommerceCouriersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/couriers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/customer-choices
-   */
-  getDashboardCommerceCustomerChoices(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/customer-choices", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/customers
-   */
-  getDashboardCommerceCustomers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/customers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/customers
-   */
-  postDashboardCommerceCustomers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/customers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/customers/export
-   */
-  getDashboardCommerceCustomersExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/customers/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/customers/{id}
-   */
-  deleteDashboardCommerceCustomersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/customers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/customers/{id}
-   */
-  patchDashboardCommerceCustomersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/customers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/delivery
-   */
-  getDashboardCommerceDelivery(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/delivery", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/delivery-routes
-   */
-  getDashboardCommerceDeliveryRoutes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/delivery-routes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/delivery-routes
-   */
-  postDashboardCommerceDeliveryRoutes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/delivery-routes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/delivery-routes/{id}
-   */
-  getDashboardCommerceDeliveryRoutesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/delivery-routes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/delivery-routes/{id}
-   */
-  deleteDashboardCommerceDeliveryRoutesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/delivery-routes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/delivery-routes/{id}
-   */
-  patchDashboardCommerceDeliveryRoutesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/delivery-routes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/digital-deliveries
-   */
-  getDashboardCommerceDigitalDeliveries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/digital-deliveries", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/digital-deliveries
-   */
-  postDashboardCommerceDigitalDeliveries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/digital-deliveries", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/digital-deliveries/{id}
-   */
-  getDashboardCommerceDigitalDeliveriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/digital-deliveries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/digital-deliveries/{id}
-   */
-  deleteDashboardCommerceDigitalDeliveriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/digital-deliveries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/digital-deliveries/{id}
-   */
-  patchDashboardCommerceDigitalDeliveriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/digital-deliveries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/discounts
-   */
-  getDashboardCommerceDiscounts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/discounts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/discounts
-   */
-  postDashboardCommerceDiscounts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/discounts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/discounts/{id}
-   */
-  deleteDashboardCommerceDiscountsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/discounts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/discounts/{id}
-   */
-  patchDashboardCommerceDiscountsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/discounts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/gift-cards
-   */
-  getDashboardCommerceGiftCards(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/gift-cards", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/gift-cards
-   */
-  postDashboardCommerceGiftCards(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/gift-cards", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/gift-cards/export
-   */
-  getDashboardCommerceGiftCardsExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/gift-cards/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/gift-cards/{id}
-   */
-  deleteDashboardCommerceGiftCardsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/gift-cards/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/gift-cards/{id}
-   */
-  patchDashboardCommerceGiftCardsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/gift-cards/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/license-key-options
-   */
-  getDashboardCommerceLicenseKeyOptions(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/license-key-options", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/license-keys
-   */
-  getDashboardCommerceLicenseKeys(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/license-keys", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/license-keys
-   */
-  postDashboardCommerceLicenseKeys(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/license-keys", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/license-keys/{id}
-   */
-  getDashboardCommerceLicenseKeysId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/license-keys/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/license-keys/{id}
-   */
-  deleteDashboardCommerceLicenseKeysId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/license-keys/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/license-keys/{id}
-   */
-  patchDashboardCommerceLicenseKeysId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/license-keys/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/manufacturers
-   */
-  getDashboardCommerceManufacturers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/manufacturers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/manufacturers
-   */
-  postDashboardCommerceManufacturers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/manufacturers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/manufacturers/{id}
-   */
-  deleteDashboardCommerceManufacturersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/manufacturers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/manufacturers/{id}
-   */
-  patchDashboardCommerceManufacturersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/manufacturers/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/orders
-   */
-  getDashboardCommerceOrders(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/orders", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/orders
-   */
-  postDashboardCommerceOrders(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/orders", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/orders/customers
-   */
-  getDashboardCommerceOrdersCustomers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/orders/customers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/orders/export
-   */
-  getDashboardCommerceOrdersExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/orders/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/orders/{id}
-   */
-  deleteDashboardCommerceOrdersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/orders/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/orders/{id}
-   */
-  patchDashboardCommerceOrdersId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/orders/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/payments
-   */
-  getDashboardCommercePayments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/payments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/payments/export
-   */
-  getDashboardCommercePaymentsExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/payments/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/payments/{id}/refund
-   */
-  postDashboardCommercePaymentsIdRefund(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/payments/{id}/refund", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/pos
-   */
-  getDashboardCommercePos(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/pos", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/pos/checkout
-   */
-  postDashboardCommercePosCheckout(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/pos/checkout", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/pos/products
-   */
-  getDashboardCommercePosProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/pos/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/print-devices
-   */
-  getDashboardCommercePrintDevices(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/print-devices", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/print-devices
-   */
-  postDashboardCommercePrintDevices(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/print-devices", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/print-devices/{id}
-   */
-  deleteDashboardCommercePrintDevicesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/print-devices/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/print-devices/{id}
-   */
-  patchDashboardCommercePrintDevicesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/print-devices/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/print-logs
-   */
-  getDashboardCommercePrintLogs(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/print-logs", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/print-logs/export
-   */
-  getDashboardCommercePrintLogsExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/print-logs/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/print-logs/{id}
-   */
-  deleteDashboardCommercePrintLogsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/print-logs/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/product-choices
-   */
-  getDashboardCommerceProductChoices(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/product-choices", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/products
-   */
-  getDashboardCommerceProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/products
-   */
-  postDashboardCommerceProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/products/export
-   */
-  getDashboardCommerceProductsExport(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/products/export", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/products/{id}
-   */
-  getDashboardCommerceProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/products/{id}
-   */
-  deleteDashboardCommerceProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/products/{id}
-   */
-  patchDashboardCommerceProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/reviews
-   */
-  getDashboardCommerceReviews(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/reviews", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/reviews/{id}
-   */
-  deleteDashboardCommerceReviewsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/reviews/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/reviews/{id}
-   */
-  patchDashboardCommerceReviewsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/reviews/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/shipping-methods
-   */
-  getDashboardCommerceShippingMethods(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/shipping-methods", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/shipping-methods
-   */
-  postDashboardCommerceShippingMethods(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/shipping-methods", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/shipping-methods/{id}
-   */
-  getDashboardCommerceShippingMethodsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/shipping-methods/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/shipping-methods/{id}
-   */
-  deleteDashboardCommerceShippingMethodsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/shipping-methods/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/shipping-methods/{id}
-   */
-  patchDashboardCommerceShippingMethodsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/shipping-methods/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/shipping-rates
-   */
-  getDashboardCommerceShippingRates(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/shipping-rates", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/shipping-rates
-   */
-  postDashboardCommerceShippingRates(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/shipping-rates", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/shipping-rates/{id}
-   */
-  getDashboardCommerceShippingRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/shipping-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/shipping-rates/{id}
-   */
-  deleteDashboardCommerceShippingRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/shipping-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/shipping-rates/{id}
-   */
-  patchDashboardCommerceShippingRatesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/shipping-rates/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/shipping-zones
-   */
-  getDashboardCommerceShippingZones(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/shipping-zones", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/shipping-zones
-   */
-  postDashboardCommerceShippingZones(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/shipping-zones", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/shipping-zones/{id}
-   */
-  getDashboardCommerceShippingZonesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/shipping-zones/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/shipping-zones/{id}
-   */
-  deleteDashboardCommerceShippingZonesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/shipping-zones/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/shipping-zones/{id}
-   */
-  patchDashboardCommerceShippingZonesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/shipping-zones/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/stats
-   */
-  getDashboardCommerceStats(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/stats", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/taxes
-   */
-  getDashboardCommerceTaxes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/taxes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/taxes
-   */
-  postDashboardCommerceTaxes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/taxes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/taxes/{id}
-   */
-  deleteDashboardCommerceTaxesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/taxes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/taxes/{id}
-   */
-  patchDashboardCommerceTaxesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/taxes/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/taxes/{id}/default
-   */
-  patchDashboardCommerceTaxesIdDefault(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/taxes/{id}/default", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/units
-   */
-  getDashboardCommerceUnits(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/units", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/units
-   */
-  postDashboardCommerceUnits(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/units", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/units/{id}
-   */
-  deleteDashboardCommerceUnitsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/units/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/units/{id}
-   */
-  patchDashboardCommerceUnitsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/units/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/units/{id}/default
-   */
-  patchDashboardCommerceUnitsIdDefault(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/units/{id}/default", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/upsells
-   */
-  getDashboardCommerceUpsells(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/upsells", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/upsells
-   */
-  postDashboardCommerceUpsells(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/upsells", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/upsells/{id}
-   */
-  getDashboardCommerceUpsellsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/upsells/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/upsells/{id}
-   */
-  deleteDashboardCommerceUpsellsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/upsells/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/upsells/{id}
-   */
-  patchDashboardCommerceUpsellsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/upsells/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/variants
-   */
-  getDashboardCommerceVariants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/variants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/variants
-   */
-  postDashboardCommerceVariants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/variants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/variants/{id}
-   */
-  deleteDashboardCommerceVariantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/variants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/variants/{id}
-   */
-  patchDashboardCommerceVariantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/variants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/waitlist-products
-   */
-  getDashboardCommerceWaitlistProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/waitlist-products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/waitlist-products
-   */
-  postDashboardCommerceWaitlistProducts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/waitlist-products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/waitlist-products/{id}
-   */
-  deleteDashboardCommerceWaitlistProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/waitlist-products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/waitlist-products/{id}
-   */
-  patchDashboardCommerceWaitlistProductsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/waitlist-products/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/commerce/waitlist-restaurants
-   */
-  getDashboardCommerceWaitlistRestaurants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/commerce/waitlist-restaurants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/commerce/waitlist-restaurants
-   */
-  postDashboardCommerceWaitlistRestaurants(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/commerce/waitlist-restaurants", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/commerce/waitlist-restaurants/{id}
-   */
-  deleteDashboardCommerceWaitlistRestaurantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/commerce/waitlist-restaurants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/commerce/waitlist-restaurants/{id}
-   */
-  patchDashboardCommerceWaitlistRestaurantsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/commerce/waitlist-restaurants/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/content/overview
-   */
-  getDashboardContentOverview(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/content/overview", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -2538,13 +641,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * POST /api/dashboard/event-metrics
-   */
-  postDashboardEventMetrics(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/event-metrics", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/dashboard/files
    */
   getDashboardFiles(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -2594,13 +690,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * PUT /api/dashboard/files/tags
-   */
-  putDashboardFilesTags(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PUT", "/api/dashboard/files/tags", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * POST /api/dashboard/files/uploads
    */
   postDashboardFilesUploads(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -2619,13 +708,6 @@ export function createClient(config: ClientConfig) {
    */
   getDashboardHealth(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/api/dashboard/health", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/home
-   */
-  getDashboardHome(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/home", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -2755,13 +837,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * POST /api/dashboard/kanban/cards/{id}/comments
-   */
-  postDashboardKanbanCardsIdComments(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/kanban/cards/{id}/comments", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
    * POST /api/dashboard/kanban/cards/{id}/labels
    */
   postDashboardKanbanCardsIdLabels(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -2794,20 +869,6 @@ export function createClient(config: ClientConfig) {
    */
   patchDashboardKanbanColumnsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "PATCH", "/api/dashboard/kanban/columns/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/kanban/comments/{id}
-   */
-  deleteDashboardKanbanCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/kanban/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/kanban/comments/{id}
-   */
-  patchDashboardKanbanCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/kanban/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -2913,13 +974,6 @@ export function createClient(config: ClientConfig) {
    */
   postDashboardMarkdown(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "POST", "/api/dashboard/markdown", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/marketing/abandoned-carts
-   */
-  getDashboardMarketingAbandonedCarts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/marketing/abandoned-carts", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -3336,69 +1390,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/dashboard/pages
-   */
-  getDashboardPages(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/pages", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/pages
-   */
-  postDashboardPages(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/pages", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/pages/{id}
-   */
-  deleteDashboardPagesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/pages/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/pages/{id}
-   */
-  patchDashboardPagesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/pages/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/posts
-   */
-  getDashboardPosts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/posts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/posts
-   */
-  postDashboardPosts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/posts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/posts/{id}
-   */
-  getDashboardPostsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/posts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/posts/{id}
-   */
-  deleteDashboardPostsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/posts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /api/dashboard/posts/{id}
-   */
-  patchDashboardPostsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/api/dashboard/posts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/dashboard/queries
    */
   getDashboardQueries(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -3581,13 +1572,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/dashboard/search
-   */
-  getDashboardSearch(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/search", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/dashboard/search-engine
    */
   getDashboardSearchEngine(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -3641,34 +1625,6 @@ export function createClient(config: ClientConfig) {
    */
   getDashboardSourceCommands(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/api/dashboard/source/commands", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/stats
-   */
-  getDashboardStats(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/stats", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /api/dashboard/tags
-   */
-  getDashboardTags(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/dashboard/tags", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/dashboard/tags
-   */
-  postDashboardTags(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/dashboard/tags", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /api/dashboard/tags/{id}
-   */
-  deleteDashboardTagsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/api/dashboard/tags/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -3777,31 +1733,73 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /api/forms/{uuid}
-   */
-  getFormsUuid(input: { "uuid": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/api/forms/{uuid}", input ?? {}, [{"name":"uuid","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/forms/{uuid}/submissions
-   */
-  postFormsUuidSubmissions(input: { "uuid": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/forms/{uuid}/submissions", input ?? {}, [{"name":"uuid","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/forms/{uuid}/uploads
-   */
-  postFormsUuidUploads(input: { "uuid": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/forms/{uuid}/uploads", input ?? {}, [{"name":"uuid","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/hello
    */
   getHello(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/api/hello", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/hosts/enrol
+   */
+  postHostsEnrol(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/hosts/enrol", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/hosts/enrolment-tokens
+   */
+  postHostsEnrolmentTokens(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/hosts/enrolment-tokens", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/hosts/{id}/revoke
+   */
+  postHostsIdRevoke(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/hosts/{id}/revoke", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/hosts/{id}/rotate
+   */
+  postHostsIdRotate(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/hosts/{id}/rotate", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/ingest/cve
+   */
+  postIngestCve(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/ingest/cve", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/ingest/findings
+   */
+  postIngestFindings(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/ingest/findings", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/ingest/heartbeat
+   */
+  postIngestHeartbeat(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/ingest/heartbeat", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/ingest/scans
+   */
+  postIngestScans(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/ingest/scans", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * POST /api/ingest/waf
+   */
+  postIngestWaf(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "POST", "/api/ingest/waf", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -3917,20 +1915,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * POST /api/orders/offers/accept
-   */
-  postOrdersOffersAccept(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/orders/offers/accept", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/orders/offers/decline
-   */
-  postOrdersOffersDecline(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/orders/offers/decline", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /api/queries/dashboard
    */
   getQueriesDashboard(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -3984,13 +1968,6 @@ export function createClient(config: ClientConfig) {
    */
   getQueriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/api/queries/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /api/reviews/submit
-   */
-  postReviewsSubmit(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/api/reviews/submit", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -4169,230 +2146,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /cms/authors
-   */
-  getCmsAuthors(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/authors", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /cms/authors
-   */
-  postCmsAuthors(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/cms/authors", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/authors/{id}
-   */
-  getCmsAuthorsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/authors/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /cms/authors/{id}
-   */
-  deleteCmsAuthorsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/cms/authors/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/authors/{id}
-   */
-  patchCmsAuthorsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/authors/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/categories
-   */
-  getCmsCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /cms/categories
-   */
-  postCmsCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/cms/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/categories/{id}
-   */
-  getCmsCategoriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/categories/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /cms/categories/{id}
-   */
-  deleteCmsCategoriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/cms/categories/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/categories/{id}
-   */
-  patchCmsCategoriesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/categories/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/comments
-   */
-  getCmsComments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/comments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /cms/comments
-   */
-  postCmsComments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/cms/comments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/comments/{id}
-   */
-  getCmsCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /cms/comments/{id}
-   */
-  deleteCmsCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/cms/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/comments/{id}
-   */
-  patchCmsCommentsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/comments/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/dashboard
-   */
-  getCmsDashboard(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/dashboard", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/files
-   */
-  getCmsFiles(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/files", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/pages
-   */
-  getCmsPages(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/pages", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /cms/pages
-   */
-  postCmsPages(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/cms/pages", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /cms/pages/{id}
-   */
-  deleteCmsPagesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/cms/pages/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/pages/{id}
-   */
-  patchCmsPagesId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/pages/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/posts
-   */
-  getCmsPosts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/posts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /cms/posts
-   */
-  postCmsPosts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/cms/posts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/posts/{id}
-   */
-  getCmsPostsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/posts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /cms/posts/{id}
-   */
-  deleteCmsPostsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/cms/posts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/posts/{id}
-   */
-  patchCmsPostsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/posts/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/posts/{id}/views
-   */
-  patchCmsPostsIdViews(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/posts/{id}/views", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/tags
-   */
-  getCmsTags(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/tags", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /cms/tags
-   */
-  postCmsTags(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/cms/tags", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /cms/tags/{id}
-   */
-  getCmsTagsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/cms/tags/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * DELETE /cms/tags/{id}
-   */
-  deleteCmsTagsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "DELETE", "/cms/tags/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * PATCH /cms/tags/{id}
-   */
-  patchCmsTagsId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "PATCH", "/cms/tags/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
    * GET /dashboard/activity
    */
   getDashboardActivity2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -4407,136 +2160,10 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * GET /dashboard/cms/authors
-   */
-  getDashboardCmsAuthors(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/cms/authors", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/cms/categories
-   */
-  getDashboardCmsCategories(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/cms/categories", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/cms/comments
-   */
-  getDashboardCmsComments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/cms/comments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/cms/pages
-   */
-  getDashboardCmsPages(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/cms/pages", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/cms/posts
-   */
-  getDashboardCmsPosts(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/cms/posts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/cms/tags
-   */
-  getDashboardCmsTags(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/cms/tags", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/coupons
-   */
-  getDashboardCommerceCoupons2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/coupons", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/customers
-   */
-  getDashboardCommerceCustomers2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/customers", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/delivery
-   */
-  getDashboardCommerceDelivery2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/delivery", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/discounts
-   */
-  getDashboardCommerceDiscounts2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/discounts", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/gift-cards
-   */
-  getDashboardCommerceGiftCards2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/gift-cards", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/orders
-   */
-  getDashboardCommerceOrders2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/orders", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/payments
-   */
-  getDashboardCommercePayments2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/payments", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/products
-   */
-  getDashboardCommerceProducts2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/products", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/reviews
-   */
-  getDashboardCommerceReviews2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/reviews", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/taxes
-   */
-  getDashboardCommerceTaxes2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/taxes", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/commerce/upsells
-   */
-  getDashboardCommerceUpsells2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/commerce/upsells", {}, [], null, "application/json", [], options)
-  },
-
-  /**
    * GET /dashboard/health
    */
   getDashboardHealth2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/dashboard/health", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/home
-   */
-  getDashboardHome2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/home", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -4551,48 +2178,6 @@ export function createClient(config: ClientConfig) {
    */
   getDashboardSettings(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/dashboard/settings", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /dashboard/stats
-   */
-  getDashboardStats2(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/dashboard/stats", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /delivery/pings
-   */
-  postDeliveryPings(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/delivery/pings", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /delivery/routes/{id}/start
-   */
-  postDeliveryRoutesIdStart(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/delivery/routes/{id}/start", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /delivery/stops/{id}/complete
-   */
-  postDeliveryStopsIdComplete(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/delivery/stops/{id}/complete", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /delivery/stops/{id}/fail
-   */
-  postDeliveryStopsIdFail(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/delivery/stops/{id}/fail", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /delivery/stops/{id}/start
-   */
-  postDeliveryStopsIdStart(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/delivery/stops/{id}/start", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -4747,6 +2332,13 @@ export function createClient(config: ClientConfig) {
    */
   getInfrastructureServers(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/infrastructure/servers", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * GET /install
+   */
+  getInstall(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "GET", "/install", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -4974,13 +2566,6 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * POST /payments/cancel-subscription/{id}
-   */
-  postPaymentsCancelSubscriptionId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/payments/cancel-subscription/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
    * POST /payments/checkout/{id}
    */
   postPaymentsCheckoutId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
@@ -4988,31 +2573,10 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
-   * POST /payments/create-invoice-subscription/{id}
-   */
-  postPaymentsCreateInvoiceSubscriptionId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/payments/create-invoice-subscription/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /payments/create-payment-intent/{id}
-   */
-  postPaymentsCreatePaymentIntentId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/payments/create-payment-intent/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
    * GET /payments/create-setup-intent/{id}
    */
   getPaymentsCreateSetupIntentId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/payments/create-setup-intent/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /payments/create-subscription/{id}
-   */
-  postPaymentsCreateSubscriptionId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/payments/create-subscription/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -5041,20 +2605,6 @@ export function createClient(config: ClientConfig) {
    */
   getPaymentsFetchCustomerId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/payments/fetch-customer/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /payments/fetch-product/{id}
-   */
-  getPaymentsFetchProductId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/payments/fetch-product/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /payments/fetch-transaction-history/{id}
-   */
-  getPaymentsFetchTransactionHistoryId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/payments/fetch-transaction-history/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -5104,13 +2654,6 @@ export function createClient(config: ClientConfig) {
    */
   putPaymentsUpdateDefaultPaymentMethodId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "PUT", "/payments/update-default-payment-method/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /payments/update-subscription/{id}
-   */
-  postPaymentsUpdateSubscriptionId(input: { "id": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/payments/update-subscription/{id}", input ?? {}, [{"name":"id","in":"path","required":true}], null, "application/json", [], options)
   },
 
   /**
@@ -5202,13 +2745,6 @@ export function createClient(config: ClientConfig) {
    */
   getRobotsTxt(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "GET", "/robots.txt", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * GET /sitemap.xml
-   */
-  getSitemapXml(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "GET", "/sitemap.xml", {}, [], null, "application/json", [], options)
   },
 
   /**
@@ -5356,13 +2892,6 @@ export function createClient(config: ClientConfig) {
    */
   postWebhooksEmailSes(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
     return request(config, "POST", "/webhooks/email/ses", {}, [], null, "application/json", [], options)
-  },
-
-  /**
-   * POST /webhooks/payments
-   */
-  postWebhooksPayments(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
-    return request(config, "POST", "/webhooks/payments", {}, [], null, "application/json", [], options)
   },
   }
 }

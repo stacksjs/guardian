@@ -14,8 +14,10 @@ export default defineModel({
     useTimestamps: true,
     useSeeder: { count: 60 },
   },
-  indexes: [{ name: 'waf_events_host_occurred', columns: ['host_id', 'occurred_at'] }, { name: 'waf_events_site_rule', columns: ['site', 'rule_id'] }],
+  indexes: [{ name: 'waf_events_host_occurred', columns: ['host_id', 'occurred_at'] }, { name: 'waf_events_site_rule', columns: ['site', 'rule_id'] }, { name: 'waf_events_host_event_unique', columns: ['host_id', 'event_id'], unique: true }],
   attributes: {
+    /** The engine's id for the transaction, so a resent batch is deduplicated. */
+    eventId: { required: true, fillable: true, validation: { rule: schema.string().max(128) }, factory: faker => faker.string.uuid() },
     occurredAt: { required: true, fillable: true, validation: { rule: schema.timestamp() }, factory: faker => faker.date.recent({ days: 3 }).toISOString() },
     site: { required: true, fillable: true, validation: { rule: schema.string().max(255) }, factory: faker => faker.internet.domainName() },
     ruleId: { required: false, fillable: true, validation: { rule: schema.number().min(0) }, factory: faker => faker.helpers.arrayElement([942100, 941100, 930120, 920350, 913100]) },

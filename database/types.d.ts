@@ -535,6 +535,24 @@ declare module '@stacksjs/database' {
       avatar: string
       user_id: number
     }
+    cve_exposures: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      inventory_run: string
+      package: string
+      ecosystem: "dpkg" | "rpm" | "apk" | "homebrew" | "pantry" | "npm" | "pypi" | "go" | "cargo" | "macos-app"
+      installed_version: string
+      fixed_version: string
+      cve_id: string
+      cvss: number
+      severity: "info" | "low" | "medium" | "high" | "critical"
+      kev: number
+      kev_due_date: string
+      host_id: number
+    }
     dead_letter_jobs: {
       // columns
       id: number
@@ -603,6 +621,21 @@ declare module '@stacksjs/database' {
       author: string
       url: string
       error_log: string
+    }
+    detections: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      path: string
+      container_path: string
+      signature: string
+      source: "clamav" | "guardian" | "malwarebazaar" | "heuristic"
+      severity: "info" | "low" | "medium" | "high" | "critical"
+      sha256: string
+      action: "reported" | "blocked" | "quarantined" | "deleted"
+      scan_id: number
     }
     digital_deliveries: {
       // columns
@@ -711,6 +744,17 @@ declare module '@stacksjs/database' {
       event_id: string
       processed_at: string
     }
+    enrolment_tokens: {
+      // columns
+      id: number
+      created_at: string
+      updated_at: string | null
+      token_hash: string
+      label: string
+      expires_at: string
+      used_at: string
+      host_id: number
+    }
     errors: {
       // columns
       id: number
@@ -751,6 +795,24 @@ declare module '@stacksjs/database' {
       last_used_at: string
       created_by_user_id: number
       board_id: number
+    }
+    findings: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      finding_key: string
+      check: string
+      category: "malware" | "network" | "kernel" | "persistence" | "privilege" | "hardening" | "integrity"
+      severity: "info" | "low" | "medium" | "high" | "critical"
+      title: string
+      remediation: string
+      details: unknown
+      first_seen_at: string
+      last_seen_at: string
+      suppressed: number
+      host_id: number
     }
     form_fields: {
       // columns
@@ -831,6 +893,25 @@ declare module '@stacksjs/database' {
       last_used_date: string
       template_id: string
       customer_id: number
+    }
+    hosts: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      name: string
+      platform: "linux" | "macos" | "windows"
+      role: "server" | "desktop"
+      enrolment_state: "pending" | "active" | "revoked"
+      agent_version: string
+      database_version: string
+      node_id: string
+      credential_hash: string
+      credential_rotated_at: string
+      revoked_at: string
+      protection: unknown
+      last_seen_at: string
     }
     job_batches: {
       // columns
@@ -1280,6 +1361,18 @@ declare module '@stacksjs/database' {
       auction_id: number
       customer_id: number
     }
+    policies: {
+      // columns
+      id: number
+      created_at: string
+      updated_at: string | null
+      name: string
+      surfaces: unknown
+      fail_closed: number
+      limits: unknown
+      schedule: string
+      suppressions: unknown
+    }
     post_purchase_offer_responses: {
       // columns
       id: number
@@ -1406,6 +1499,20 @@ declare module '@stacksjs/database' {
       nutritional_info: string
       category_id: number
       manufacturer_id: number
+    }
+    quarantine_items: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      stored_at: string
+      original_path: string
+      size: number
+      state: "held" | "restored" | "deleted"
+      restored_at: string
+      deleted_at: string
+      detection_id: number
     }
     query_logs: {
       // columns
@@ -1559,6 +1666,26 @@ declare module '@stacksjs/database' {
       created_at: string | null
       updated_at: string | null
     }
+    scans: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      scan_key: string
+      target: string
+      trigger: "manual" | "scheduled" | "upload" | "realtime" | "mail"
+      started_at: string
+      finished_at: string
+      files: number
+      bytes: number
+      infected: number
+      limited: number
+      errors: number
+      engine_version: string
+      database_version: string
+      host_id: number
+    }
     sender_domains: {
       // columns
       id: number
@@ -1609,6 +1736,18 @@ declare module '@stacksjs/database' {
       postal_codes: string
       status: "active" | "inactive" | "draft"
       shipping_method_id: number
+    }
+    signature_feeds: {
+      // columns
+      id: number
+      created_at: string
+      updated_at: string | null
+      name: string
+      source: "clamav" | "guardian" | "malwarebazaar" | "kev" | "nvd" | "osv"
+      version: string
+      enabled: number
+      last_updated_at: string
+      coverage: string
     }
     site_domains: {
       // columns
@@ -1884,6 +2023,24 @@ declare module '@stacksjs/database' {
       email: string
       password: string
       avatar: string
+    }
+    waf_events: {
+      // columns
+      id: number
+      uuid: string
+      created_at: string
+      updated_at: string | null
+      event_id: string
+      occurred_at: string
+      site: string
+      rule_id: number
+      anomaly_score: number
+      action: "passed" | "logged" | "blocked"
+      client_ip: string
+      method: string
+      path: string
+      messages: unknown
+      host_id: number
     }
     waitlist_products: {
       // columns

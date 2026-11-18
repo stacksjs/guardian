@@ -12,8 +12,13 @@ export default defineModel({
     useTimestamps: true,
     useSeeder: { count: 40 },
   },
-  indexes: [{ name: 'scans_host_started', columns: ['host_id', 'started_at'] }],
+  indexes: [
+    { name: 'scans_host_started', columns: ['host_id', 'started_at'] },
+    { name: 'scans_host_scan_key_unique', columns: ['host_id', 'scan_key'], unique: true },
+  ],
   attributes: {
+    /** Client-chosen id for the scan, so a replayed batch is recognised and not stored twice. */
+    scanKey: { required: true, fillable: true, validation: { rule: schema.string().max(64) }, factory: faker => faker.string.uuid() },
     target: { required: true, fillable: true, validation: { rule: schema.string().max(1024) }, factory: faker => faker.helpers.arrayElement(['/var/www', '/home', 'upload', 'realtime', '/opt/app']) },
     trigger: { required: true, fillable: true, default: 'manual', validation: { rule: schema.enum(['manual', 'scheduled', 'upload', 'realtime', 'mail']) }, factory: faker => faker.helpers.arrayElement(['manual', 'scheduled', 'upload']) },
     startedAt: { required: true, fillable: true, validation: { rule: schema.timestamp() }, factory: faker => faker.date.recent({ days: 7 }).toISOString() },
