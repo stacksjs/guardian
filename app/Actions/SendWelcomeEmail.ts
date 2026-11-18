@@ -1,0 +1,71 @@
+import { Action } from '@stacksjs/actions/runtime'
+import { greetingName } from '@stacksjs/auth'
+import { config } from '@stacksjs/config'
+import { mail, template } from '@stacksjs/email'
+import { log } from '@stacksjs/logging'
+import { schema } from '@stacksjs/validation/runtime'
+
+/**
+ * Dispatched to, not requested.
+ *
+ * `app/Events.ts` maps `'user:registered'` onto this action, and the event
+ * system calls `handle(payload, event)` with the payload alone. This used to
+ * read `request.get('to')`, which threw `request.get is not a function` the
+ * first time anybody registered - and the types said nothing, because
+ * `handle`'s parameter was typed as a request that never arrives.
+ *
+ * The payload is the one `RegisterAction` dispatches: `{ id, email, name, to }`.
+ * Only what this action reads is declared.
+ */
+export default new Action({
+  name: 'SendWelcomeEmail',
+  description: 'Sends a welcome email to newly registered users',
+  invocation: 'event',
+
+  /*
+   * `to` is an address, and `name` is the first name `RegisterAction` allows a
+   * mail to print (`greetingName`), so it has a ceiling and no floor: "Ava" is
+   * a name.
+   *
+   * `to` is `.required()` and `name` is not, which is what `RegisterAction`
+   * actually dispatches: the address always resolves (it falls back to the one
+   * being registered) while `name` reads `user?.name` and can be absent. So
+   * `user.name` types as `string | undefined`, and the `|| 'there'` below stops
+   * being defensive habit and starts being the thing the type asks for.
+   */
+  validations: {
+    to: { rule: schema.string().email().required() },
+    name: { rule: schema.string().max(100) },
+  },
+
+  async handle(user) {
+    // Untrusted: the address is unconfirmed and the name is whatever was
+    // typed at sign-up. A first name, or no name at all - never a link.
+    const name = greetingName(user.name) || 'there'
+
+    log.debug(`[action] Sending welcome email to ${user.to}`)
+
+    const { html, text } = await template('welcome', {
+      subject: 'Welcome!',
+      variables: { name, userName: name, email: user.to },
+    })
+
+    // The app's own name, read when the mail is sent. This file is copied into
+    // every new app, so a name written here is the name every app would send.
+    const appName = config.app.name || 'our app'
+
+    await mail.send({
+      to: user.to,
+      subject: `Welcome to ${appName}!`,
+      html,
+      text,
+    })
+
+    log.info(`[action] Welcome email sent to ${user.to}`)
+
+    return {
+      success: true,
+      message: `Welcome email sent to ${user.to}`,
+    }
+  },
+})
