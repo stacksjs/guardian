@@ -10,6 +10,12 @@
 <script server>
 import { config } from '@stacksjs/config'
 
+interface InheritedContext {
+  pageTitle?: string
+  pageDescription?: string
+  canonicalPath?: string
+}
+
 const appName = config.app.name || 'My App'
 
 // APP_URL is often a bare host (`my-app.localhost`), which is not a valid
@@ -18,7 +24,7 @@ const rawUrl = String(config.app.url || '').replace(/\/+$/, '')
 const siteUrl = rawUrl && !/^https?:\/\//.test(rawUrl) ? `https://${rawUrl}` : rawUrl
 
 const headTitle = typeof pageTitle !== 'undefined' && pageTitle ? `${pageTitle} - ${appName}` : appName
-const headDescription = typeof pageDescription !== 'undefined' && pageDescription ? pageDescription : `${appName} is up and running.`
+const headDescription = typeof pageDescription !== 'undefined' && pageDescription ? pageDescription : 'Guardian is an open source operator surface for malware scanning, host protection, and web application security. Currently under development.'
 const headPath = typeof canonicalPath !== 'undefined' && canonicalPath ? canonicalPath : '/'
 const canonicalUrl = siteUrl ? `${siteUrl}${headPath}` : ''
 </script>
@@ -26,6 +32,12 @@ const canonicalUrl = siteUrl ? `${siteUrl}${headPath}` : ''
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ headTitle }}</title>
 <meta name="description" content="{{ headDescription }}">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ appName }}">
+<meta property="og:title" content="{{ headTitle }}">
+<meta property="og:description" content="{{ headDescription }}">
+<meta name="twitter:card" content="summary">
 @if(canonicalUrl)
   <link rel="canonical" href="{{ canonicalUrl }}">
 @endif
