@@ -5,16 +5,16 @@
   </head>
   <body class="min-h-[100dvh] antialiased">
     <a href="#main" class="sr-only focus:not-sr-only skip-link">Skip to content</a>
-    <header class="flex gap-6 items-center justify-between mx-auto px-5 md:px-8 h-20 max-w-6xl">
+    <header class="flex gap-3 items-center justify-between sm:gap-6 mx-auto px-5 md:px-8 h-20 max-w-6xl">
       <a href="/" aria-label="Guardian home" class="flex gap-2.5 items-center font-semibold text-xl tracking-tight brand">
         <span aria-hidden="true" class="inline-flex items-center justify-center h-8 w-8 rounded-lg brand-mark"><i class="h-5 w-5 i-hugeicons-security-check"></i></span>
         Guardian
       </a>
-      <nav aria-label="Main navigation" class="flex gap-5 items-center md:gap-8 text-sm">
+      <nav aria-label="Main navigation" class="flex gap-3 items-center sm:gap-5 md:gap-8 text-sm">
         <a class="hidden sm:inline-flex nav-link" href="#overview">Overview</a>
         <a class="nav-link" href="#engines">Engines</a>
         <a class="nav-link" href="#development">Roadmap</a>
-        <a href="https://github.com/stacksjs/guardian" aria-label="View Guardian on GitHub" class="hidden sm:inline-flex items-center justify-center h-9 w-9 rounded-md source-link"><i aria-hidden="true" class="h-5 w-5 i-hugeicons-github"></i></a>
+        <a href="https://github.com/stacksjs/guardian" aria-label="View Guardian on GitHub" class="hidden sm:inline-flex items-center justify-center h-11 w-11 rounded-md source-link"><i aria-hidden="true" class="h-5 w-5 i-hugeicons-github"></i></a>
       </nav>
     </header>
     <main id="main" tabindex="-1">
@@ -44,7 +44,8 @@
     --button-text: #f8faf7;
   }
   .brand-mark, .hub-mark { background: var(--accent-soft); color: var(--accent); }
-  .nav-link { color: var(--muted); transition: color 160ms ease; }
+  .brand { min-height: 44px; }
+  .nav-link { padding-block: 12px; color: var(--muted); transition: color 160ms ease; }
   .nav-link:hover, .text-link:hover { color: var(--text); }
   .source-link { border: 1px solid var(--border); }
   .source-link:hover { background: var(--surface); }
