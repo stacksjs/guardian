@@ -25,6 +25,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
-      - run: bun scripts/issues/sync-ready.ts
+      - name: Sync readiness labels
         env:
           GH_TOKEN: ${{ secrets.ISSUE_GRAPH_TOKEN || github.token }}
+          ISSUE_GRAPH_TOKEN: ${{ secrets.ISSUE_GRAPH_TOKEN }}
+        run: |
+          if [[ -n "$ISSUE_GRAPH_TOKEN" ]]; then
+            bun scripts/issues/sync-ready.ts
+          else
+            echo '::warning::ISSUE_GRAPH_TOKEN is not configured. Cross-repository relabelling requires this secret with issues read and write on every participating repository. Using github.token to relabel only the hub; unavailable external blockers remain blocked.'
+            bun scripts/issues/sync-ready.ts --repo "$GITHUB_REPOSITORY" --allow-unavailable-blockers
+          fi
