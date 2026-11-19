@@ -1,16 +1,16 @@
 @extends('default')
 @section('content')
 <script server>
-const pageTitle = 'Security, brought together'
-const pageDescription = 'Guardian is an open source operator surface for malware scanning, host protection, and web application security. Follow its development.'
+const pageTitle = 'Malware scanning, host checks, and a web firewall'
+const pageDescription = 'Guardian is an open-source project for malware scanning, host checks, and web application firewall management.'
 </script>
 
 
 <section aria-labelledby="hero-heading" class="grid gap-12 grid-cols-1 items-center lg:gap-10 lg:grid-cols-2 mx-auto pb-20 pt-12 px-5 md:pb-24 md:pt-16 md:px-8 max-w-6xl hero">
   <div>
     <p class="flex gap-2 items-center mb-6 font-medium text-[var(--muted)] text-sm"><i aria-hidden="true" class="h-4 w-4 text-[var(--accent)] i-hugeicons-source-code"></i>Open source, in development</p>
-    <h1 id="hero-heading" class="font-semibold tracking-tight hero-title">Security,<span class="block text-[var(--muted)]">brought together.</span></h1>
-    <p class="mt-6 max-w-md leading-relaxed text-[var(--muted)] text-lg">An operator surface for malware scanning, host protection, and web application security.</p>
+    <h1 id="hero-heading" class="font-semibold tracking-tight hero-title">Malware scanning,<span class="block text-[var(--muted)]">host checks, and a web firewall.</span></h1>
+    <p class="mt-6 max-w-md leading-relaxed text-[var(--muted)] text-lg">Guardian is being built to give Stacks operators one workspace for scan results, host findings, and firewall controls.</p>
     <div class="flex flex-wrap gap-3 items-center mt-8">
       <a href="https://github.com/stacksjs/guardian" class="inline-flex gap-2.5 items-center justify-center px-5 py-3 min-h-11 font-medium text-sm whitespace-nowrap rounded-md button-primary">View on GitHub</a>
       <a href="https://github.com/stacksjs/guardian/blob/main/docs/PLAN.md" class="inline-flex gap-2.5 items-center justify-center px-5 py-3 min-h-11 font-medium text-sm whitespace-nowrap rounded-md button-secondary">Read the plan</a>
@@ -21,7 +21,7 @@ const pageDescription = 'Guardian is an open source operator surface for malware
     <div class="flex flex-col items-center mt-9 mx-auto px-5 py-7 max-w-xs rounded-xl architecture-hub">
       <span aria-hidden="true" class="inline-flex items-center justify-center h-14 w-14 rounded-xl hub-mark"><i class="h-8 w-8 i-hugeicons-security-check"></i></span>
       <p class="mt-4 font-semibold text-2xl tracking-tight">Guardian</p>
-      <p class="mt-1 text-[var(--muted)] text-xs">One operator surface</p>
+      <p class="mt-1 text-[var(--muted)] text-xs">Operator console</p>
     </div>
     <div aria-hidden="true" class="architecture-branches"></div>
     <div class="grid gap-2 grid-cols-3 sm:gap-3">
@@ -29,14 +29,13 @@ const pageDescription = 'Guardian is an open source operator surface for malware
       <div class="flex flex-col gap-2 items-center px-1 py-4 text-center rounded-lg engine-node"><i aria-hidden="true" class="h-5 w-5 text-[var(--accent)] i-hugeicons-shield-01"></i><span class="font-semibold text-sm">zig-waf</span><span class="text-[var(--muted)] text-xs">HTTP protection</span></div>
       <div class="flex flex-col gap-2 items-center px-1 py-4 text-center rounded-lg engine-node"><i aria-hidden="true" class="h-5 w-5 text-[var(--accent)] i-hugeicons-code-square"></i><span class="font-semibold text-sm">Stacks</span><span class="text-[var(--muted)] text-xs">App integration</span></div>
     </div>
-    <figcaption id="architecture-caption" class="mt-6 leading-relaxed text-[var(--muted)] text-center text-xs">Standalone engines. A shared place to operate them.</figcaption>
+    <figcaption id="architecture-caption" class="mt-6 leading-relaxed text-[var(--muted)] text-center text-xs">Guardian connects zav, zig-waf, and the Stacks integration.</figcaption>
   </figure>
 </section>
 
 <section id="overview" aria-labelledby="overview-heading" class="mx-auto px-5 py-20 md:px-8 md:py-24 max-w-6xl section-border">
   <div class="max-w-2xl">
-    <h2 id="overview-heading" class="font-semibold text-3xl tracking-tight md:text-4xl section-title">A clearer view of your security work.</h2>
-    <p class="mt-5 max-w-xl leading-relaxed text-[var(--muted)]">Guardian is being built to bring scan results, host findings, and WAF controls into one workspace.</p>
+    <h2 id="overview-heading" class="font-semibold text-3xl tracking-tight md:text-4xl section-title">Web dashboard, macOS, and CLI</h2>
   </div>
   <div class="grid gap-5 grid-cols-1 md:grid-cols-5 mt-10">
     <article class="md:col-span-3 p-7 md:p-9 rounded-xl workspace-panel">
@@ -45,21 +44,21 @@ const pageDescription = 'Guardian is an open source operator surface for malware
         <span class="inline-flex items-center justify-center h-16 w-16 rounded-xl symbol-tile"><i class="h-8 w-8 i-hugeicons-security-check"></i></span><span class="connection-rule"></span>
         <span class="inline-flex items-center justify-center h-16 w-16 rounded-xl symbol-tile"><i class="h-8 w-8 i-hugeicons-globe-02"></i></span>
       </div>
-      <h3 class="font-semibold text-xl tracking-tight">Across your infrastructure</h3>
-      <p class="mt-3 max-w-md leading-relaxed text-[var(--muted)] text-base">A web dashboard for enrolled hosts, scan findings, CVE exposure, and the WAF. Planned as one view across the program.</p>
+      <h3 class="font-semibold text-xl tracking-tight">Web dashboard</h3>
+      <p class="mt-3 max-w-md leading-relaxed text-[var(--muted)] text-base">The dashboard is being built to show enrolled hosts, scan findings, CVE exposure, and firewall events.</p>
     </article>
     <article class="md:col-span-2 p-7 md:p-9 rounded-xl desktop-panel">
       <div aria-hidden="true" class="pb-12 pt-3"><span class="inline-flex items-center justify-center h-16 w-16 rounded-xl desktop-symbol"><i class="h-8 w-8 i-hugeicons-computer"></i></span></div>
-      <h3 class="font-semibold text-xl tracking-tight">At home on your Mac</h3>
-      <p class="mt-3 leading-relaxed text-[var(--muted)] text-base">A native macOS app and menu bar companion are planned, alongside a CLI for work in the terminal.</p>
+      <h3 class="font-semibold text-xl tracking-tight">Native macOS app and CLI</h3>
+      <p class="mt-3 leading-relaxed text-[var(--muted)] text-base">A native Mac app, a menu bar companion, and a terminal CLI are planned.</p>
     </article>
   </div>
 </section>
 
 <section id="engines" aria-labelledby="engines-heading" class="mx-auto px-5 py-20 md:px-8 md:py-24 max-w-6xl section-border">
   <div class="max-w-2xl">
-    <h2 id="engines-heading" class="font-semibold text-3xl tracking-tight md:text-4xl section-title">Independent by design.</h2>
-    <p class="mt-5 max-w-xl leading-relaxed text-[var(--muted)]">Each engine stays standalone. Guardian gives operators a common surface while the work happens in the repository that owns it.</p>
+    <h2 id="engines-heading" class="font-semibold text-3xl tracking-tight md:text-4xl section-title">Engines and integration</h2>
+    <p class="mt-5 max-w-xl leading-relaxed text-[var(--muted)]">zav and zig-waf can run independently of Guardian.</p>
   </div>
   <div class="mt-10">
     <a href="https://github.com/zig-utils/zig-anti-virus" class="grid gap-3 grid-cols-1 md:gap-6 md:grid-cols-12 md:items-center py-6 rounded-lg engine-row">
@@ -83,13 +82,11 @@ const pageDescription = 'Guardian is an open source operator surface for malware
 <section id="development" aria-labelledby="development-heading" class="mx-auto pb-20 px-5 md:pb-24 md:px-8 max-w-6xl">
   <div class="grid gap-9 grid-cols-1 md:grid-cols-5 md:items-center p-7 md:p-12 rounded-xl development-panel">
     <div class="md:col-span-3">
-      <p class="mb-4 font-medium text-[var(--accent)] text-sm">Built in the open</p>
-      <h2 id="development-heading" class="font-semibold text-3xl tracking-tight">Follow the work as it happens.</h2>
-      <p class="mt-4 max-w-md leading-relaxed text-[var(--muted)] text-base">Guardian is under development. The macOS app has not been released. The public plan and issue graph track what comes next.</p>
+      <h2 id="development-heading" class="font-semibold text-3xl tracking-tight">Development roadmap</h2>
+      <p class="mt-4 max-w-md leading-relaxed text-[var(--muted)] text-base">See what has shipped and which features are still in development on GitHub.</p>
     </div>
     <div class="flex flex-col gap-4 items-start md:col-span-2 md:items-end">
       <a href="https://github.com/stacksjs/guardian/issues" class="inline-flex gap-2.5 items-center justify-center px-5 py-3 min-h-11 font-medium text-sm whitespace-nowrap rounded-md button-primary">Explore the issues</a>
-      <p class="text-[var(--muted)] text-xs">Web dashboard, CLI, and macOS. One program.</p>
     </div>
   </div>
 </section>
