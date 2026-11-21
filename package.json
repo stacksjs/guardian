@@ -59,10 +59,10 @@
     "build:desktop": "./buddy build:desktop"
   },
   "dependencies": {
-    "@stacksjs/actions": "^0.75.629",
+    "@stacksjs/actions": "^0.75.639",
     "@stacksjs/env": "^0.75.629",
     "@stacksjs/path": "^0.75.629",
-    "@stacksjs/stx": "0.2.913",
+    "@stacksjs/stx": "0.2.921",
     "stacks": "^0.75.629"
   },
   "workspaces": [
@@ -80,9 +80,9 @@
   },
   "devDependencies": {
     "@actions/expressions": "0.3.61",
-    "@stacksjs/components": "0.2.913",
+    "@stacksjs/components": "0.2.921",
     "better-dx": "^0.2.39",
-    "bun-plugin-stx": "0.2.913"
+    "bun-plugin-stx": "0.2.921"
   },
   "overrides": {
     "ts-images": "https://registry.pantry.dev/ts-images@71051e6",
