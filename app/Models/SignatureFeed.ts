@@ -28,7 +28,8 @@ export default defineModel({
     kind: { required: false, fillable: true, validation: { rule: schema.enum(['rules', 'cve']) }, factory: () => null },
     /** Lowercase hex SHA-256 of the published blob, also its strong ETag. */
     sha256: { required: false, fillable: true, validation: { rule: schema.string().max(64) }, factory: () => null },
-    size: { required: false, fillable: true, validation: { rule: schema.number().min(0) }, factory: () => null },
+    // 64-bit: Postgres makes `schema.number()` a 32-bit integer, which refuses anything past 2 GiB.
+    size: { required: false, fillable: true, type: 'bigint', validation: { rule: schema.number().min(0) }, factory: () => null },
     /** File name of the published blob inside the feed directory, recorded by the publish path only. */
     path: { required: false, fillable: true, validation: { rule: schema.string().max(255) }, factory: () => null },
     /** The canonical manifest bytes the signature covers (see app/Guardian/feed.ts). */

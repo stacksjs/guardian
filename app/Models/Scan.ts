@@ -24,7 +24,8 @@ export default defineModel({
     startedAt: { required: true, fillable: true, validation: { rule: schema.timestamp() }, factory: faker => faker.date.recent({ days: 7 }).toISOString() },
     finishedAt: { required: false, fillable: true, validation: { rule: schema.timestamp() }, factory: faker => faker.date.recent({ days: 7 }).toISOString() },
     files: { required: true, fillable: true, default: 0, validation: { rule: schema.number().min(0) }, factory: faker => faker.number.int({ min: 1, max: 200_000 }) },
-    bytes: { required: true, fillable: true, default: 0, validation: { rule: schema.number().min(0) }, factory: faker => faker.number.int({ min: 1_000, max: 20_000_000_000 }) },
+    // 64-bit: Postgres makes `schema.number()` a 32-bit integer, which refuses anything past 2 GiB.
+    bytes: { required: true, fillable: true, default: 0, type: 'bigint', validation: { rule: schema.number().min(0) }, factory: faker => faker.number.int({ min: 1_000, max: 20_000_000_000 }) },
     infected: { required: true, fillable: true, default: 0, validation: { rule: schema.number().min(0) }, factory: faker => faker.helpers.arrayElement([0, 0, 0, 0, 0, 0, 0, 0, 0, faker.number.int({ min: 1, max: 4 })]) },
     limited: { required: true, fillable: true, default: 0, validation: { rule: schema.number().min(0) }, factory: () => 0 },
     errors: { required: true, fillable: true, default: 0, validation: { rule: schema.number().min(0) }, factory: () => 0 },
