@@ -1,3 +1,5 @@
+import { config } from '@stacksjs/config'
+import { db, runDatabaseMigration } from '@stacksjs/database'
 import { refreshDatabase } from '@stacksjs/testing/database'
 
 const state = globalThis as typeof globalThis & { __guardianDatabaseRefreshed?: Promise<void> }
@@ -12,6 +14,33 @@ const state = globalThis as typeof globalThis & { __guardianDatabaseRefreshed?: 
  * keeps to rows it created itself (its own host names, its own feed kinds).
  */
 export function freshDatabase(): Promise<void> {
-  state.__guardianDatabaseRefreshed ??= refreshDatabase()
+  state.__guardianDatabaseRefreshed ??= config.database?.default === 'postgres' ? refreshPostgres() : refreshDatabase()
   return state.__guardianDatabaseRefreshed
+}
+
+/**
+ * Migrate and empty a Postgres test database.
+ *
+ * `refreshDatabase()` resets SQLite and MySQL only: on Postgres it returns without migrating or
+ * truncating, so a fresh database had no tables and a reused one kept the last run's rows. This
+ * applies `database/migrations/postgres` and then truncates every table but the migrations
+ * ledger. It refuses a database without `test` or `testing` as a word of its name (`guardian_test`,
+ * not `guardian_latest`), because it empties whatever the connection names.
+ *
+ * Remove this once `refreshDatabase()` resets Postgres itself (stacksjs/stacks#3355).
+ */
+async function refreshPostgres(): Promise<void> {
+  const name = String(config.database?.connections?.postgres?.name ?? '')
+  if (!/(?:^|[_-])test(?:ing)?(?:$|[_-])/i.test(name))
+    throw new Error(`Refusing to empty Postgres database "${name}": run the suite against one named like guardian_test`)
+
+  const migrated = await runDatabaseMigration()
+  if (migrated.isErr)
+    throw migrated.error
+
+  const tables = (await db.unsafe(
+    `SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND tablename <> 'migrations'`,
+  ).execute()) as Array<{ tablename: string }>
+  if (tables.length > 0)
+    await db.unsafe(`TRUNCATE TABLE ${tables.map(t => `"${t.tablename.replaceAll('"', '""')}"`).join(', ')} RESTART IDENTITY CASCADE`).execute()
 }

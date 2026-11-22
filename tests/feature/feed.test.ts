@@ -496,7 +496,8 @@ describe.skipIf(!HAVE_ARTIFACTS)('rule pack distribution', () => {
       version: '27000',
       enabled: true,
       sha256: rules.sha256,
-      size: rules.size,
+      // Postgres hands a bigint back as a string, which `schema.number()` refuses on the way in.
+      size: Number(rules.size),
       path: rules.path,
       manifest: rules.manifest,
       signature: rules.signature,

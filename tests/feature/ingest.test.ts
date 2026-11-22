@@ -18,8 +18,13 @@ beforeAll(async () => {
   await freshDatabase()
 })
 
-/** The instant a stored datetime names. Columns hold UTC without a zone suffix. */
+/**
+ * The instant a stored datetime names. SQLite hands back text holding UTC without a zone suffix;
+ * Postgres hands back a Date.
+ */
 function utc(value: unknown): number {
+  if (value instanceof Date)
+    return value.getTime()
   const text = String(value).replace(' ', 'T')
   return Date.parse(/(?:Z|[+-]\d{2}:?\d{2})$/.test(text) ? text : `${text}Z`)
 }
@@ -71,6 +76,12 @@ describe('ingest is idempotent', () => {
     expect(Detection.where('scan_id', scan.id).count()).toBe(1)
   })
 
+  it('stores a scan larger than 2 GiB', () => {
+    const host = authenticateHost(enrol('big-scan-host').credential)!
+    ingestScans(host, [{ scanKey: 's-big', target: '/', startedAt: '2026-11-17T10:00:00Z', files: 1, bytes: 3_000_000_000, detections: [] }])
+    expect(Number(Scan.where('host_id', host.id).where('scan_key', 's-big').first()!.bytes)).toBe(3_000_000_000)
+  })
+
   it('updates a repeated finding instead of duplicating it', () => {
     const host = authenticateHost(enrol('finding-host').credential)!
     const finding = { findingKey: 'process.tmp_executable:/tmp/x', check: 'process.tmp_executable', category: 'malware', severity: 'high', title: 'Executable running from /tmp', seenAt: '2026-11-17T10:00:00Z' }
@@ -92,6 +103,14 @@ describe('ingest is idempotent', () => {
     expect(CveExposure.where('host_id', host.id).count()).toBe(2)
     ingestCveExposure(host, { inventoryRun: 'r2', exposures: [exposure] })
     expect(CveExposure.where('host_id', host.id).count()).toBe(1)
+  })
+
+  it('stores the KEV flag and a fractional CVSS score as sent', () => {
+    const host = authenticateHost(enrol('cve-values-host').credential)!
+    const exposure = { package: 'openssl', ecosystem: 'dpkg', installedVersion: '3.0.1', severity: 'critical' }
+    ingestCveExposure(host, { inventoryRun: 'r1', exposures: [{ ...exposure, cveId: 'CVE-2026-0003', cvss: 9.8, kev: true }, { ...exposure, cveId: 'CVE-2026-0004', cvss: 4.3, kev: false }] })
+    const rows = CveExposure.where('host_id', host.id).orderBy('cve_id', 'asc').get()
+    expect(rows.map(row => [Boolean(row.kev), Number(row.cvss)])).toEqual([[true, 9.8], [false, 4.3]])
   })
 
   it('deduplicates WAF events by event id, and ingests 10k in under 2 seconds', () => {
