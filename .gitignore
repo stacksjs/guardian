@@ -214,3 +214,6 @@ docs/erd.md
 # The framework defaults: a link to node_modules/@stacksjs/defaults, made on
 # boot. `buddy publish:defaults` replaces it with a copy you commit instead.
 /storage/framework/defaults
+
+# Published feed blobs and the CVE feed mirror (app/Guardian/feed.ts, docs/FEEDS.md).
+storage/guardian/

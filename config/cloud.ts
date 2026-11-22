@@ -5,6 +5,12 @@ import { env } from '@stacksjs/env'
 const APP_SLUG = 'guardian'
 const APP_DOMAIN = env.APP_DOMAIN || undefined
 
+// Published feed blobs and the CVE feed mirror (GUARDIAN_FEED_DIR, docs/FEEDS.md). They must
+// outlive a release, or every deploy leaves the published rows naming missing blobs and throws
+// away zav's NVD progress. Both sites must see the same directory: `main` runs the scheduler that
+// writes it, and either site may answer `/api`. Same project-level shared root as the SQLite file.
+const FEED_STATE = { path: 'storage/guardian', target: `/var/www/${APP_SLUG}-shared/storage/guardian` }
+
 /**
  * Safe application cloud defaults.
  *
@@ -76,6 +82,7 @@ export const tsCloud: TsCloudConfig = {
         'bun install --frozen-lockfile',
         'bun node_modules/@stacksjs/buddy/dist/cli.js migrate',
       ],
+      sharedPaths: [FEED_STATE],
       env: {
         APP_ENV: 'production',
         NODE_ENV: 'production',
@@ -89,6 +96,7 @@ export const tsCloud: TsCloudConfig = {
       start: 'bun node_modules/@stacksjs/actions/dist/serve/api.js',
       port: 3008,
       preStart: ['bun install --frozen-lockfile'],
+      sharedPaths: [{ ...FEED_STATE, seed: false }],
       env: {
         HOST: '127.0.0.1',
         APP_ENV: 'production',
