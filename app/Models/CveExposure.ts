@@ -21,7 +21,8 @@ export default defineModel({
     installedVersion: { required: true, fillable: true, validation: { rule: schema.string().max(120) }, factory: faker => faker.system.semver() },
     fixedVersion: { required: false, fillable: true, validation: { rule: schema.string().max(120) }, factory: faker => faker.system.semver() },
     cveId: { required: true, fillable: true, validation: { rule: schema.string().max(32) }, factory: faker => `CVE-${faker.number.int({ min: 2019, max: 2026 })}-${faker.number.int({ min: 1000, max: 49999 })}` },
-    cvss: { required: false, fillable: true, validation: { rule: schema.number().min(0).max(10) }, factory: faker => faker.number.float({ min: 3, max: 10, fractionDigits: 1 }) },
+    // A double, not the integer `schema.number()` implies: scores carry one decimal, and Postgres rounded 9.8 to 10.
+    cvss: { required: false, fillable: true, type: 'double', validation: { rule: schema.number().min(0).max(10) }, factory: faker => faker.number.float({ min: 3, max: 10, fractionDigits: 1 }) },
     severity: { required: true, fillable: true, default: 'medium', validation: { rule: schema.enum([...SEVERITIES]) }, factory: faker => faker.helpers.arrayElement(['medium', 'high', 'critical']) },
     kev: { required: true, fillable: true, default: false, validation: { rule: schema.boolean() }, factory: faker => faker.datatype.boolean({ probability: 0.15 }) },
     kevDueDate: { required: false, fillable: true, validation: { rule: schema.string().max(10) }, factory: () => null },

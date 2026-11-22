@@ -71,7 +71,7 @@
           },
           {
             "name": "cvss",
-            "type": "integer",
+            "type": "double",
             "isPrimaryKey": false,
             "isUnique": false,
             "isNullable": true,
@@ -809,7 +809,7 @@
           },
           {
             "name": "size",
-            "type": "integer",
+            "type": "bigint",
             "isPrimaryKey": false,
             "isUnique": false,
             "isNullable": false,
@@ -956,7 +956,7 @@
           },
           {
             "name": "bytes",
-            "type": "integer",
+            "type": "bigint",
             "isPrimaryKey": false,
             "isUnique": false,
             "isNullable": false,
@@ -1191,7 +1191,7 @@
           },
           {
             "name": "size",
-            "type": "integer",
+            "type": "bigint",
             "isPrimaryKey": false,
             "isUnique": false,
             "isNullable": true,
@@ -1503,7 +1503,7 @@
       }
     ]
   },
-  "hash": "8205c24944909a0202f06bee26690996368ef9b539cdb1584a21cfaa1cefc2db",
+  "hash": "99fac12ac9b61aea292757c7221002cdefc59a894906533c17e43fa6288143c3",
   "dialect": "sqlite",
-  "updatedAt": "2026-11-20T13:29:45.222Z"
+  "updatedAt": "2026-11-22T12:54:53.212Z"
 }
