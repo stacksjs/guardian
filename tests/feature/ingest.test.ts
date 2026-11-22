@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'bun:test'
-import { refreshDatabase } from '@stacksjs/testing/database'
+import { freshDatabase } from '../support/database'
 import {
   authenticateHost,
   createEnrolmentToken,
@@ -15,7 +15,7 @@ import {
 } from '../../app/Guardian/ingest'
 
 beforeAll(async () => {
-  await refreshDatabase()
+  await freshDatabase()
 })
 
 /** The instant a stored datetime names. Columns hold UTC without a zone suffix. */
