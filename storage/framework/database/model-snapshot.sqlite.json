@@ -1167,6 +1167,70 @@
             "isUnique": false,
             "isNullable": true,
             "hasDefault": false
+          },
+          {
+            "name": "kind",
+            "type": "enum",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "enumValues": [
+              "rules",
+              "cve"
+            ]
+          },
+          {
+            "name": "sha256",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "maxLength": 64
+          },
+          {
+            "name": "size",
+            "type": "integer",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
+          },
+          {
+            "name": "path",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "maxLength": 255
+          },
+          {
+            "name": "manifest",
+            "type": "text",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false
+          },
+          {
+            "name": "signature",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "maxLength": 128
+          },
+          {
+            "name": "key_id",
+            "type": "string",
+            "isPrimaryKey": false,
+            "isUnique": false,
+            "isNullable": true,
+            "hasDefault": false,
+            "maxLength": 16
           }
         ],
         "indexes": [
@@ -1439,7 +1503,7 @@
       }
     ]
   },
-  "hash": "a0e0c92188fd3b47b112ea78fc17c78d14e988df7f4a720eceefd65922684284",
+  "hash": "8205c24944909a0202f06bee26690996368ef9b539cdb1584a21cfaa1cefc2db",
   "dialect": "sqlite",
-  "updatedAt": "2026-11-18T05:08:43.788Z"
+  "updatedAt": "2026-11-20T13:29:45.222Z"
 }
