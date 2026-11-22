@@ -33,4 +33,10 @@ A [Stacks](https://stacksjs.com) application.
   same path under `app/` or `resources/`, or run `./buddy publish:defaults` to
   commit a copy of the whole tree instead.
 
+## Feed distribution
+
+Guardian signs and serves its rule pack and CVE index to enrolled hosts. Setup (the signing key,
+the `GUARDIAN_FEED_*` and `NVD_API_KEY` variables, the zav binary), the endpoints, how hosts pin
+the key, and why ClamAV databases are never served: [docs/FEEDS.md](docs/FEEDS.md).
+
 Read more at [stacksjs.com/docs](https://stacksjs.com/docs).

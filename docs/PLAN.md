@@ -350,7 +350,7 @@ The full study goes into the repo as `docs/DESIGN.md`. These are its main decisi
 
 **Web dashboard** (stx + ts-css; design-taste skill and its pre-flight check)
 - Pages: overview with fleet score, detections, quarantine, hosts, CVE exposure (KEV first), signature feeds, policies.
-- The Guardian rule feed and CVE index are served from here.
+- The Guardian rule feed and CVE index are served from here (operator guide: [FEEDS.md](FEEDS.md)).
 
 **Shared packages**
 - `packages/core`: engine client, policy, report model, used by the CLI, the agent and the server.
