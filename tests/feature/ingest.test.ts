@@ -8,6 +8,7 @@ import {
   ingestFindings,
   ingestScans,
   ingestWafEvents,
+  parseInstant,
   parseOcsf,
   parseWafEvents,
   revokeHost,
@@ -159,5 +160,56 @@ describe('ingest is idempotent', () => {
       path: '/login',
       messages: ['SQL Injection Attack Detected'],
     }])
+  })
+})
+
+describe('client timestamps', () => {
+  it('reads an RFC 3339 date-time with a zone as the UTC instant it names', () => {
+    expect(parseInstant('2026-11-17T16:30:00+05:30')).toBe('2026-11-17T11:00:00.000Z')
+    expect(parseInstant('2026-11-17T06:00:00-0500')).toBe('2026-11-17T11:00:00.000Z')
+    expect(parseInstant('2026-11-17 11:00:00.123456789z')).toBe('2026-11-17T11:00:00.123Z')
+    expect(parseInstant('2026-11-17T11:00Z')).toBe('2026-11-17T11:00:00.000Z')
+    expect(parseInstant('2024-02-29T00:00:00Z')).toBe('2024-02-29T00:00:00.000Z')
+  })
+
+  it('refuses a time without a zone, a date that does not exist, and anything else', () => {
+    for (const value of ['2026-11-17T11:00:00', '2026-02-30T00:00:00Z', '2025-02-29T00:00:00Z', '2026-11-17T24:00:00Z', '2026-11-17T11:60:00Z', '2026-11-17T11:00:60Z', '2026-11-17T11:00:00+24:00', '0050-01-01T00:00:00Z', 'yesterday', '1763373600000', ''])
+      expect(parseInstant(value)).toBeNull()
+  })
+
+  // Findings go through the model, which already converted offsets; this keeps it that way.
+  it('stores a finding seen at an offset time as the same instant on every database', () => {
+    const host = authenticateHost(enrol('offset-host').credential)!
+    ingestFindings(host, [{ findingKey: 'k', check: 'c', category: 'hardening', severity: 'low', title: 't', seenAt: '2026-11-17T16:00:00+05:00' }])
+    expect(utc(Finding.where('host_id', host.id).first()!.lastSeenAt)).toBe(Date.parse('2026-11-17T11:00:00Z'))
+  })
+
+  it('stores a WAF event at an offset time as the same instant on every database', () => {
+    const host = authenticateHost(enrol('offset-waf-host').credential)!
+    const events = parseWafEvents([{ eventId: 'tz-1', occurredAt: '2026-11-17T06:00:00-05:00', site: 'example.test', ruleId: null, anomalyScore: 0, action: 'passed', clientIp: '203.0.113.9', method: 'GET', path: '/' }])
+    // The raw insert stores this text as it is, so SQLite alone would read an offset back correctly.
+    expect(events[0]!.occurredAt).toBe('2026-11-17T11:00:00.000Z')
+    ingestWafEvents(host, events)
+    expect(utc(WafEvent.where('host_id', host.id).first()!.occurredAt)).toBe(Date.parse('2026-11-17T11:00:00Z'))
+  })
+
+  it('refuses a batch with a bad timestamp with a 422 before writing anything', () => {
+    const host = authenticateHost(enrol('bad-time-host').credential)!
+    // The good item comes first, so this also shows the transaction rolls it back.
+    const scan = { target: '/', files: 0, bytes: 0, detections: [] }
+    expect(() => ingestScans(host, [{ ...scan, scanKey: 's-ok', startedAt: '2026-11-17T10:00:00Z' }, { ...scan, scanKey: 's-bad', startedAt: 'not a date' }])).toThrow('startedAt must be an RFC 3339 date-time')
+    const finding = { check: 'c', category: 'hardening', severity: 'low', title: 't' }
+    expect(() => ingestFindings(host, [{ ...finding, findingKey: 'ok', seenAt: '2026-11-17T10:00:00Z' }, { ...finding, findingKey: 'bad', seenAt: '2026-02-30T00:00:00Z' }])).toThrow('seenAt must be an RFC 3339 date-time')
+    expect(() => parseWafEvents([{ eventId: 'e', occurredAt: '2026-11-17T11:00:00', site: 's', anomalyScore: 0, action: 'passed', clientIp: '203.0.113.9', method: 'GET', path: '/' }])).toThrow('occurredAt must be an RFC 3339 date-time')
+    expect(Scan.where('host_id', host.id).count()).toBe(0)
+    expect(Finding.where('host_id', host.id).count()).toBe(0)
+  })
+
+  it('skips an OCSF line whose time is not an instant', () => {
+    const base = { class_uid: 6004, http_request: { url: { path: '/' } } }
+    const lines = [{ ...base, time: 'yesterday' }, { ...base, time: -1e15 }, { ...base, time: '2026-11-17T06:00:00-05:00', metadata: { uid: 'ok' } }].map(l => JSON.stringify(l)).join('\n')
+    const { events, skipped } = parseOcsf(lines)
+    expect(skipped).toBe(2)
+    expect(events.map(e => e.occurredAt)).toEqual(['2026-11-17T11:00:00.000Z'])
   })
 })

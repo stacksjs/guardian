@@ -52,6 +52,48 @@ function text(value: unknown, field: string, max: number, required = true): stri
   return value
 }
 
+const INSTANT = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:?\d{2})$/i
+// Date.UTC reads years 0-99 as 1900-1999, so the range starts where that cannot matter.
+const FIRST_INSTANT = Date.UTC(1900, 0, 1)
+const LAST_INSTANT = Date.UTC(9999, 11, 31, 23, 59, 59, 999)
+
+/**
+ * An RFC 3339 date-time with an explicit zone, as the UTC instant it names
+ * (`YYYY-MM-DDTHH:MM:SS.sssZ`), or null when `value` is not one.
+ *
+ * Stored as given, the databases disagreed. A model write converts an offset itself, but the raw
+ * WAF-event insert does not, and Postgres `timestamp` drops the offset, so `06:00-05:00` landed
+ * five hours off. Postgres failed a batch holding a non-date with a 500 while SQLite stored the
+ * text, and both kept dates that do not exist. A time without a zone is refused rather than read
+ * in the server's zone, and so is a date that does not exist (February 30th, hour 24, second 60)
+ * or falls outside 1900 to 9999.
+ */
+export function parseInstant(value: string): string | null {
+  const m = INSTANT.exec(value)
+  if (!m)
+    return null
+  const [year, month, day, hour, minute, second] = m.slice(1, 7).map(part => Number(part ?? 0)) as number[]
+  const daysInMonth = new Date(Date.UTC(year!, month!, 0)).getUTCDate()
+  if (month! < 1 || month! > 12 || day! < 1 || day! > daysInMonth || hour! > 23 || minute! > 59 || second! > 59)
+    return null
+  const zone = m[8]!.toUpperCase()
+  const offset = zone === 'Z' ? 0 : (zone[0] === '-' ? -1 : 1) * (Number(zone.slice(1, 3)) * 60 + Number(zone.slice(-2)))
+  if (zone !== 'Z' && (Number(zone.slice(1, 3)) > 23 || Number(zone.slice(-2)) > 59))
+    return null
+  const ms = Date.UTC(year!, month! - 1, day!, hour!, minute!, second!, Number((m[7] ?? '0').padEnd(3, '0').slice(0, 3))) - offset * 60_000
+  if (year! < 1900 || ms < FIRST_INSTANT || ms > LAST_INSTANT)
+    return null
+  return new Date(ms).toISOString()
+}
+
+/** A required or optional client timestamp, normalised to UTC (see `parseInstant`). */
+function instant(value: unknown, field: string, required = true): string | null {
+  const raw = text(value, field, 40, required)
+  if (raw === null)
+    return null
+  return parseInstant(raw) ?? fail(422, `${field} must be an RFC 3339 date-time with a zone, such as 2026-11-17T10:00:00Z`)
+}
+
 function int(value: unknown, field: string, fallback = 0): number {
   if (value === undefined || value === null)
     return fallback
@@ -198,8 +240,8 @@ export function ingestScans(host: HostRow, scans: unknown): { created: number, r
         scanKey,
         target: text(raw.target, 'target', 1024)!,
         trigger: oneOf(raw.trigger, 'trigger', ['manual', 'scheduled', 'upload', 'realtime', 'mail'] as const, 'manual'),
-        startedAt: text(raw.startedAt, 'startedAt', 40)!,
-        finishedAt: text(raw.finishedAt, 'finishedAt', 40, false),
+        startedAt: instant(raw.startedAt, 'startedAt')!,
+        finishedAt: instant(raw.finishedAt, 'finishedAt', false),
         files: int(raw.files, 'files'),
         bytes: int(raw.bytes, 'bytes'),
         infected: detections.length,
@@ -242,7 +284,7 @@ export function ingestFindings(host: HostRow, findings: unknown): { created: num
         title: text(raw.title, 'title', 255)!,
         remediation: text(raw.remediation, 'remediation', 10_000, false),
         details: raw.details === undefined ? null : JSON.stringify(raw.details),
-        lastSeenAt: text(raw.seenAt, 'seenAt', 40, false) ?? now(),
+        lastSeenAt: instant(raw.seenAt, 'seenAt', false) ?? now(),
       }
       const existing = Finding.where('host_id', host.id).where('finding_key', findingKey).first()
       if (existing) {
@@ -331,7 +373,7 @@ export function ingestWafEvents(host: HostRow, events: WafEventInput[]): { store
 export function parseWafEvents(value: unknown): WafEventInput[] {
   return (list(value, 'events') as Record<string, unknown>[]).map(raw => ({
     eventId: text(raw.eventId, 'eventId', 128)!,
-    occurredAt: text(raw.occurredAt, 'occurredAt', 40)!,
+    occurredAt: instant(raw.occurredAt, 'occurredAt')!,
     site: text(raw.site, 'site', 255)!,
     ruleId: raw.ruleId === undefined || raw.ruleId === null ? null : int(raw.ruleId, 'ruleId'),
     anomalyScore: int(raw.anomalyScore, 'anomalyScore'),
@@ -372,7 +414,16 @@ export function parseOcsf(ndjson: string): { events: WafEventInput[], skipped: n
     const ruleIds = enrichments.map(e => Number(e?.data?.id ?? e?.data?.rule_id ?? e?.value)).filter(n => Number.isInteger(n) && n > 0)
     const score = Number(record.unmapped?.anomaly_score ?? record.risk_score ?? 0)
     const denied = record.disposition_id === 2 || record.action_id === 2 || record.disposition === 'Blocked'
-    const time = typeof record.time === 'number' ? new Date(record.time).toISOString() : String(record.time ?? now())
+    // OCSF times are epoch milliseconds; a string is held to the same rule as Guardian's own events.
+    const time = record.time === undefined || record.time === null
+      ? now()
+      : typeof record.time === 'number'
+        ? (record.time >= FIRST_INSTANT && record.time <= LAST_INSTANT ? new Date(record.time).toISOString() : null)
+        : typeof record.time === 'string' ? parseInstant(record.time) : null
+    if (time === null) {
+      skipped++
+      continue
+    }
     events.push({
       eventId: String(record.metadata?.uid ?? record.uid ?? `${time}-${url.path ?? ''}`).slice(0, 128),
       occurredAt: time,
