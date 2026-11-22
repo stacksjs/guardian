@@ -105,6 +105,7 @@
     "QueryController": true,
     "QueryLog": true,
     "QueueWorker": true,
+    "RebuildCveIndex": true,
     "Receipt": true,
     "Redirect": true,
     "Referral": true,

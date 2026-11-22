@@ -180,6 +180,7 @@ declare global {
   const FormSubmission: typeof import('@stacksjs/defaults/app/Models/Forms/FormSubmission.ts')['default']
   const Websocket: typeof import('@stacksjs/defaults/app/Models/realtime/Websocket.ts')['default']
   const Inspire: typeof import('../../../app/Jobs/Inspire')['default']
+  const RebuildCveIndex: typeof import('../../../app/Jobs/RebuildCveIndex')['default']
   const SendWelcomeEmail: typeof import('../../../app/Jobs/SendWelcomeEmail')['default']
   const ExampleJob: typeof import('@stacksjs/defaults/app/Jobs/ExampleJob.ts')['default']
   const ExampleTwoJob: typeof import('@stacksjs/defaults/app/Jobs/ExampleTwoJob.ts')['default']
