@@ -14,6 +14,7 @@
  * Quarantined samples are never uploaded: hashes and metadata only.
  */
 import { HttpError } from '@stacksjs/error-handling'
+import { type FeedKeyInfo, feedKeyInfo } from './feed'
 import { SEVERITIES, type Severity } from './severity'
 
 export const ENROLMENT_PREFIX = 'gde_'
@@ -95,8 +96,21 @@ export interface EnrolInput {
   nodeId?: unknown
 }
 
+export interface Enrolment {
+  hostId: number
+  nodeId: string
+  /** Shown once. */
+  credential: string
+  /**
+   * The feed signing key the host pins for verifying rule packs and the CVE index (see
+   * app/Guardian/feed.ts), delivered over this token-authenticated exchange so it is never taken
+   * from a feed response. Null when this server does not publish feeds.
+   */
+  feedKey: FeedKeyInfo | null
+}
+
 /** Exchange an enrolment token for a host and its credential (shown once). */
-export function enrolHost(input: EnrolInput): { hostId: number, nodeId: string, credential: string } {
+export function enrolHost(input: EnrolInput): Enrolment {
   const token = text(input.token, 'token', 128)!
   const name = text(input.name, 'name', 255)!
   const platform = oneOf(input.platform, 'platform', ['linux', 'macos', 'windows'] as const)
@@ -104,6 +118,8 @@ export function enrolHost(input: EnrolInput): { hostId: number, nodeId: string, 
   const agentVersion = text(input.agentVersion, 'agentVersion', 40, false)
   const nodeId = text(input.nodeId, 'nodeId', 64, false) ?? crypto.randomUUID()
 
+  // Read before the token is spent, so a misconfigured key cannot burn a single-use token.
+  const feedKey = feedKeyInfo()
   const credential = randomSecret(CREDENTIAL_PREFIX)
   return db.transaction(() => {
     const record = EnrolmentToken.where('token_hash', hashSecret(token)).first()
@@ -126,7 +142,7 @@ export function enrolHost(input: EnrolInput): { hostId: number, nodeId: string, 
       lastSeenAt: now(),
     })
     record.update({ usedAt: now(), hostId: host.id })
-    return { hostId: host.id as number, nodeId, credential }
+    return { hostId: host.id as number, nodeId, credential, feedKey }
   })
 }
 
