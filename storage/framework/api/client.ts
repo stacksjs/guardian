@@ -1733,6 +1733,27 @@ export function createClient(config: ClientConfig) {
   },
 
   /**
+   * GET /api/feeds/key
+   */
+  getFeedsKey(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "GET", "/api/feeds/key", {}, [], null, "application/json", [], options)
+  },
+
+  /**
+   * GET /api/feeds/{kind}/blob
+   */
+  getFeedsKindBlob(input: { "kind": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "GET", "/api/feeds/{kind}/blob", input ?? {}, [{"name":"kind","in":"path","required":true}], null, "application/json", [], options)
+  },
+
+  /**
+   * GET /api/feeds/{kind}/manifest
+   */
+  getFeedsKindManifest(input: { "kind": string }, options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
+    return request(config, "GET", "/api/feeds/{kind}/manifest", input ?? {}, [{"name":"kind","in":"path","required":true}], null, "application/json", [], options)
+  },
+
+  /**
    * GET /api/hello
    */
   getHello(options?: RequestOptions): Promise<ApiResult<Record<string, unknown>>> {
