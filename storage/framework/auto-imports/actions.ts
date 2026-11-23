@@ -5,6 +5,7 @@
 // resolves. Values are paths rather than import thunks on purpose: thunks
 // would make every compilation that touches a name resolve every module.
 export const actions = {
+  'Actions/Auth/RegisterAction': '../../../app/Actions/Auth/RegisterAction.ts',
   'Actions/NotifyUser': '../../../app/Actions/NotifyUser.ts',
   'Actions/SendWelcomeEmail': '../../../app/Actions/SendWelcomeEmail.ts',
   'Actions/AI/AskAction': '@stacksjs/defaults/app/Actions/AI/AskAction.ts',
@@ -47,7 +48,6 @@ export const actions = {
   'Actions/Auth/PasskeyRegistrationOptionsAction': '@stacksjs/defaults/app/Actions/Auth/PasskeyRegistrationOptionsAction.ts',
   'Actions/Auth/ReferralSummaryAction': '@stacksjs/defaults/app/Actions/Auth/ReferralSummaryAction.ts',
   'Actions/Auth/RefreshTokenAction': '@stacksjs/defaults/app/Actions/Auth/RefreshTokenAction.ts',
-  'Actions/Auth/RegisterAction': '@stacksjs/defaults/app/Actions/Auth/RegisterAction.ts',
   'Actions/Auth/ResendVerificationAction': '@stacksjs/defaults/app/Actions/Auth/ResendVerificationAction.ts',
   'Actions/Auth/RevokeTokenAction': '@stacksjs/defaults/app/Actions/Auth/RevokeTokenAction.ts',
   'Actions/Auth/SessionHandoffAction': '@stacksjs/defaults/app/Actions/Auth/SessionHandoffAction.ts',
