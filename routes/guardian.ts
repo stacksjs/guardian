@@ -27,25 +27,26 @@ import {
 const SMALL = 64 * 1024
 const BATCH = 16 * 1024 * 1024
 
-// Enrolment: exchange a single-use token for a host credential.
+// Enrolment: exchange a single-use token for a host credential. The enrolment token in the body is
+// the credential, and an agent is not a browser holding a CSRF cookie, so the CSRF check is off.
 route.post('/hosts/enrol', async (request: any) => {
   return response.json(enrolHost(await readJsonBody(request, SMALL) as EnrolInput), 201)
-}).parseBody(false).rateLimit(10, 'minute')
+}).parseBody(false).skipCsrf().rateLimit(10, 'minute')
 
-// Operator actions (signed-in users).
+// Operator actions: signed-in accounts holding the operator role (app/Middleware/Operator.ts).
 route.post('/hosts/enrolment-tokens', async (request: any) => {
   const body = await readJsonBody(request, SMALL).catch(() => ({})) as { label?: string, ttlHours?: number }
   return response.json({ token: createEnrolmentToken(body.label ?? null, body.ttlHours ?? 24) }, 201)
-}).parseBody(false).middleware('auth')
+}).parseBody(false).middleware('auth').middleware('operator')
 
 route.post('/hosts/{id}/rotate', (request: any) => {
   return response.json({ credential: rotateCredential(Number(request.params.id)) })
-}).middleware('auth')
+}).middleware('auth').middleware('operator')
 
 route.post('/hosts/{id}/revoke', (request: any) => {
   revokeHost(Number(request.params.id))
   return response.json({ revoked: true })
-}).middleware('auth')
+}).middleware('auth').middleware('operator')
 
 // Ingest (enrolled hosts).
 route.post('/ingest/heartbeat', async (request: any) => {

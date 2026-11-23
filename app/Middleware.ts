@@ -28,6 +28,7 @@ export default defineMiddleware({
   'cors': 'Cors',
   'auth': 'Auth',
   'host': 'HostAuth',
+  'operator': 'Operator',
   'guest': 'Guest',
   'api': 'Api',
   'team': 'Team',
