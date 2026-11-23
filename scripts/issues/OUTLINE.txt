@@ -48,6 +48,7 @@ P2.16 | xml | Incremental Io.Reader input mode for the pull tokenizer | lib | ne
 P2.17 | zcli | Close the gaps the zav CLI needs: nested subcommands, repeatable options, exit codes, JSON output | cli | fix | S | -
 P2.18 | zconfig | Environment overlay and file merge fixes needed by zavd configuration | lib | fix | S | -
 P2.19 | home | Compression package: zstd, brotli and lz4 are not the spec formats; make them conform | lib | fix | M | -
+P2.20 | mime | Fetch the benchmark dependency only when benchmarks are asked for | build | fix | S | -
 
 ## P3 | P3 Engine foundations | Signed mmapped signature database, the hash index, and the first end-to-end scan.
 P3.01 | zav | Commit docs/DESIGN.md: the engine's performance and memory design | docs | infra | S | P1.13
@@ -259,6 +260,9 @@ P12.03 | mail | clamav client: Unix socket support and a fail-closed mode | emai
 P12.04 | mail | Scan DATA and BDAT messages before saveMessage | email | new | M | P12.03
 P12.05 | mail | Scan IMAP APPEND, ActiveSync SendMail, CalDAV PUT and webmail uploads | email | new | M | P12.04
 P12.06 | mail | Switch MIME parsing to zig-mime | email | port | M | P2.15
+P12.16 | mail | Spam filter: decode base64 MIME parts through zig-mime | email | port | S | P12.06
+P12.17 | mail | Webmail: parse multipart bodies and inline images through zig-mime | email | port | M | P12.06
+P12.18 | mail | IMAP: build BODYSTRUCTURE from zig-mime's part tree | email | port | M | P12.06
 P12.07 | mail | Cut the production mail server over to zavd once the full suite passes | email | rollout | S | P12.05 P12.06 P12.01
 P12.08 | pantry | Registry deploy moves from clamav-daemon to zavd | deploy | rollout | M | P6.23
 P12.09 | pantry | Client scans packages after integrity checks and before extraction | security | new | M | P6.12

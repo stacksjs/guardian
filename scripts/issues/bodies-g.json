@@ -1,0 +1,104 @@
+[
+ {
+  "key": "P2.20",
+  "goal": "Projects that depend on zig-mime stop downloading zig-bench: the benchmark dependency is fetched only when someone asks for benchmarks.",
+  "refs": [
+   "build.zig"
+  ],
+  "scope": [
+   "A `-Dbench` build option, off by default, that guards the `lazyDependency(\"bench\")` call",
+   "The `bench` step says to pass `-Dbench` when the option is off",
+   "README and CI updated to pass the option wherever benchmarks run"
+  ],
+  "out_of_scope": [
+   "Changes to the benchmarks themselves"
+  ],
+  "notes": [
+   "A lazy dependency is still requested whenever the build script runs, including when zig-mime is only a dependency, so the call itself has to be conditional",
+   "Found in mail-os/mail#23: every fresh mail build began fetching zig-bench 0.2.1"
+  ],
+  "accept": [
+   "A project that depends on zig-mime builds from an empty cache without fetching zig-bench",
+   "`zig build bench -Dbench` still runs the benchmarks",
+   "Released as a patch version, and mail's build.zig.zon updated to it"
+  ]
+ },
+ {
+  "key": "P12.16",
+  "goal": "The spam filter reads base64 MIME parts the way the rest of the server parses mail, so a pitch hidden in a bare-LF or folded-header part is decoded and scored.",
+  "refs": [
+   "packages/zig/src/antispam/spam_filter.zig",
+   "packages/zig/src/message/mime.zig"
+  ],
+  "scope": [
+   "Feed the scan window to zig-mime's walker and decode base64 and quoted-printable text parts into the phrase scan buffer",
+   "Keep the existing scan window and output bounds",
+   "Delete `decodeBase64Parts` once nothing uses it"
+  ],
+  "out_of_scope": [
+   "Spam scoring rules and weights"
+  ],
+  "accept": [
+   "Tests show a base64 text/html part is decoded when its headers use bare LF, folded `Content-Transfer-Encoding`, or mixed case, and each fails on the old code",
+   "Every existing spam filter test passes",
+   "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` pass"
+  ],
+  "notes": [
+   "decodeBase64Parts searches the scan window for a Content-Transfer-Encoding line by hand, so header folding and bare-LF framing hide the part",
+   "src/message/mime.zig is the zig-mime adapter from P12.06"
+  ]
+ },
+ {
+  "key": "P12.17",
+  "goal": "Webmail shows the same parts and attachments the scanner sees: its message view and inline images parse multipart bodies with zig-mime.",
+  "refs": [
+   "packages/zig/src/api/webmail_maildir.zig",
+   "packages/zig/src/features/inline_images.zig",
+   "packages/zig/src/message/mime.zig"
+  ],
+  "scope": [
+   "Move webmail_maildir's body and attachment extraction onto zig-mime, keeping the `BodyParts` shape its callers use",
+   "Move inline image extraction onto zig-mime, including Content-ID lookup",
+   "Use zig-mime's RFC 2047 and RFC 2231 decoding for filenames and subjects where webmail decodes them by hand",
+   "Delete the replaced helpers once nothing uses them"
+  ],
+  "out_of_scope": [
+   "Composing outgoing multipart mail (webmail_compose.zig), which writes MIME rather than parsing it",
+   "DSN and bounce generation (dsn.zig, bounce.zig)"
+  ],
+  "accept": [
+   "A bare-LF multipart message shows the same parts and attachments in webmail as its CRLF form, with a test that fails on the old code",
+   "Every existing webmail test passes",
+   "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` pass"
+  ],
+  "notes": [
+   "webmail_maildir.zig splits bodies in parseMultipart, parseMultipartMode and extractBoundary, and decodes encoded words in decodeMimeWords",
+   "inline_images.zig finds the boundary with findBoundary; src/api/webmail.zig uses it"
+  ]
+ },
+ {
+  "key": "P12.18",
+  "goal": "IMAP clients see the message structure the scanner sees: BODYSTRUCTURE and BODY[section] come from zig-mime's part tree.",
+  "refs": [
+   "packages/zig/src/protocol/imap.zig",
+   "RFC 9051 section 7.5.2",
+   "packages/zig/src/message/mime.zig"
+  ],
+  "scope": [
+   "Build BODYSTRUCTURE from zig-mime's nested parts: type, subtype, parameters, id, description, encoding, size and lines, extension data where cheap",
+   "Serve BODY[n.m] section fetches from the same part offsets",
+   "Bound the work by zig-mime's depth and part limits, and fall back to a single text part when a limit is hit"
+  ],
+  "out_of_scope": [
+   "Other FETCH items and IMAP extensions"
+  ],
+  "accept": [
+   "Tests compare BODYSTRUCTURE for nested multipart, message/rfc822 and bare-LF messages against expected strings",
+   "A real client lists the attachments of a nested multipart message",
+   "`zig build test`, `zig build test-rfc`, `zig build test-fuzz` and `zig build test-e2e` pass"
+  ],
+  "notes": [
+   "The FETCH handler builds BODYSTRUCTURE by sniffing the top-level Content-Type, so nested parts are not described"
+  ]
+ }
+]
