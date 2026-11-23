@@ -157,8 +157,9 @@ if (flag('--preflight')) {
 }
 
 // Labels: only those a repository uses, and never overwrite a label that already exists there.
+// The marker records which labels were ensured, so an outline change that gives a repository a new
+// area, type, size or phase label ensures it again instead of failing at issue creation.
 for (const repo of repos) {
-  if (created[`__labels:${repo}`]) continue
   const mine = issues.filter(issue => issue.repo === repo)
   const wanted: Array<[string, string, string]> = [
     ['guardian', '0b3d91', 'Part of the Guardian program'],
@@ -171,28 +172,32 @@ for (const repo of repos) {
     ...[...new Set(mine.filter(issue => !issue.existing).map(issue => issue.type))].map(type => [`type:${type}`, 'd4c5f9', TYPES[type]!] as [string, string, string]),
     ...[...new Set(mine.filter(issue => !issue.existing).map(issue => issue.size))].map(size => [`size:${size}`, 'ededed', `Size ${size}`] as [string, string, string]),
   ]
+  const ensured = wanted.map(([name]) => name).sort().join(',')
+  if (created[`__labels:${repo}`] === ensured) continue
   const have = new Set((JSON.parse(gh(['label', 'list', '-R', repo, '--limit', '500', '--json', 'name'])) as Array<{ name: string }>).map(label => label.name))
   for (const [name, color, description] of wanted) {
     if (have.has(name)) continue
     await withRetry(`label ${repo} ${name}`, () => gh(['label', 'create', name, '--color', color, '--description', description, '-R', repo]))
     await sleep(300)
   }
-  created[`__labels:${repo}`] = 1
+  created[`__labels:${repo}`] = ensured
   save()
   console.log(`labels: ${repo}`)
 }
 
 // Milestones: one per phase a repository takes part in, prefixed so shared repositories stay tidy.
+// Same marker rule as labels: a repository that joins a new phase gets that phase's milestone.
 for (const repo of repos) {
-  if (created[`__milestones:${repo}`]) continue
   const used = [...new Set((repo === HUB ? issues : issues.filter(issue => issue.repo === repo && !issue.existing)).map(issue => phaseOf(issue)))]
+  const ensured = used.map(phase => phase.id).sort().join(',')
+  if (created[`__milestones:${repo}`] === ensured) continue
   const existing = new Set((JSON.parse(gh(['api', `repos/${repo}/milestones?state=all&per_page=100`])) as Array<{ title: string }>).map(milestone => milestone.title))
   for (const phase of used) {
     if (existing.has(milestoneTitle(phase))) continue
     await withRetry(`milestone ${repo} ${phase.id}`, () => gh(['api', `repos/${repo}/milestones`, '-f', `title=${milestoneTitle(phase)}`, '-f', `description=${phase.goal}`]))
     await sleep(300)
   }
-  created[`__milestones:${repo}`] = 1
+  created[`__milestones:${repo}`] = ensured
   save()
   console.log(`milestones: ${repo}`)
 }
