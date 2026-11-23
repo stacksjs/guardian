@@ -1,9 +1,10 @@
 name: Issue graph
 
 # The Guardian graph spans many repositories, so this hub relabels on a schedule rather than on its
-# own issue events alone. Cross-repository writes need ISSUE_GRAPH_TOKEN (a fine-grained token with
-# issues: write on every repository in scripts/issues/outline.config.ts); without it only this
-# repository's issues can be relabelled.
+# own issue events alone. Cross-repository writes need ISSUE_GRAPH_TOKEN: a classic token with only
+# the public_repo scope, from an account that can triage every repository in
+# scripts/issues/outline.config.ts. A fine-grained token is limited to one owner and the graph spans
+# several organisations. Without the secret only this repository's issues can be relabelled.
 on:
   schedule:
     - cron: '*/15 * * * *'

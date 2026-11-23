@@ -81,7 +81,7 @@
  "scope": [
   ".github/workflows/issue-graph.yml in the hub: schedule every 15 minutes plus workflow_dispatch, runs scripts/issues/sync-ready.ts",
   "Concurrency group so two syncs never race",
-  "The maintainer creates a fine-grained token with issues read and write on every participating repository and stores it as the ISSUE_GRAPH_TOKEN secret",
+  "The maintainer creates a classic token with only the public_repo scope and stores it as the ISSUE_GRAPH_TOKEN secret. A fine-grained token is limited to one owner, and the graph spans several organisations, all public",
   "The workflow falls back to github.token and says clearly that cross-repository relabelling needs the secret"
  ],
  "out_of_scope": [
