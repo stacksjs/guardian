@@ -49,6 +49,7 @@ P2.17 | zcli | Close the gaps the zav CLI needs: nested subcommands, repeatable 
 P2.18 | zconfig | Environment overlay and file merge fixes needed by zavd configuration | lib | fix | S | -
 P2.19 | home | Compression package: zstd, brotli and lz4 are not the spec formats; make them conform | lib | fix | M | -
 P2.20 | mime | Fetch the benchmark dependency only when benchmarks are asked for | build | fix | S | -
+P2.21 | regex | Match CRS's @rx patterns at least as fast as PCRE2 without JIT | lib | perf | M | -
 
 ## P3 | P3 Engine foundations | Signed mmapped signature database, the hash index, and the first end-to-end scan.
 P3.01 | zav | Commit docs/DESIGN.md: the engine's performance and memory design | docs | infra | S | P1.13
@@ -199,8 +200,9 @@ P9.09 | waf | Move @pm, @pmFromFile and phrase matching onto zig-regex literals 
 P9.10 | waf | Evaluate zig-mime for multipart parsing under the identical-evidence rule | waf | experiment | S | P2.15 P9.05
 P9.11 | rpx | Dataplane: spool large and chunked bodies and scan uploads through @inspectFile | waf | new | M | P9.08
 P9.36 | waf | Asynchronous verdict cache so large uploads never stall @inspectFile workers | waf | perf | M | P9.08
-P9.37 | waf | Bring the CRS request path to ModSecurity's latency, request bodies first | waf | perf | M | P9.01
+P9.37 | waf | Cut zig-waf's own cost on the CRS request path, request bodies first | waf | perf | M | P9.01
 P9.38 | waf | Run the benchmark lab in CI | bench | infra | S | P9.01
+P9.39 | waf | Run CRS at ModSecurity's per-request latency | waf | perf | M | P9.37 P2.21
 P9.12 | waf#50 | WAF-49 node enrollment, mTLS rotation, heartbeats and inventory, shared with Guardian hosts | waf | new | L | -
 P9.13 | waf#61 | WAF-60 STX local-link, pinned-CI and embedded-asset pipeline, as a reusable component library | ui | infra | M | -
 P9.14 | waf#62 | WAF-61 design system, application shell, auth and onboarding | ui | new | M | P9.13

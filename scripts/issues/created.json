@@ -381,5 +381,7 @@
   "P12.17": "mail-os/mail#123",
   "P12.18": "mail-os/mail#124",
   "P9.37": "zig-utils/zig-waf#87",
-  "P9.38": "zig-utils/zig-waf#88"
+  "P9.38": "zig-utils/zig-waf#88",
+  "P2.21": "zig-utils/zig-regex#56",
+  "P9.39": "zig-utils/zig-waf#91"
 }

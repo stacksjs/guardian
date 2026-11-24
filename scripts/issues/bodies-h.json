@@ -1,35 +1,33 @@
 [
  {
   "key": "P9.37",
-  "goal": "zig-waf runs OWASP CRS at least as fast as ModSecurity 3.0.16 per request, measured by the benchmark lab, with the form and JSON body paths fixed first.",
+  "goal": "zig-waf takes out the share of its CRS request time that is its own, before zig-regex gets faster: patterns compiled the way ModSecurity compiles them, and capture work only on the rules that match.",
   "refs": [
    "docs/benchmark-lab.md",
-   "benchmarks/lab/scenarios",
-   "src/engine.zig",
-   "src/transformations.zig",
+   "src/operators.zig",
    "src/rule_eval.zig",
-   "src/request.zig"
+   "src/engine.zig"
   ],
   "scope": [
-   "Profile the crs-get, crs-form-post and crs-json-post scenarios and record where each request's time and bytes go",
-   "Cut per-request allocation on the CRS path: zig-waf allocates 1.1 MiB per clean GET and 3.8 MiB per 973-byte form, against ModSecurity's 0.9 and 1.8 MiB",
-   "Fix the body path first: the form takes 8.4 ms against ModSecurity's 1.5 ms, and the JSON body 11.1 ms against 4.8 ms",
-   "Then the header and URI path: a clean GET takes 1.42 ms against ModSecurity's 0.80 ms and Coraza's 0.66 ms",
-   "Record before and after numbers from `zig build lab` in docs/benchmark-lab.md for each change"
+   "Test `@rx` with a span-only compile, and run the capturing compile only when a rule matches and needs its captures",
+   "Keep every `@rx` on zig-regex's linear engine where its semantics allow, instead of the backtracker",
+   "Cut per-request bytes on the CRS path: zig-waf allocates 1.1 MiB per clean GET and 3.8 MiB per 973-byte form, against ModSecurity's 0.9 and 1.8 MiB",
+   "Record `zig build lab` numbers before and after each change in docs/benchmark-lab.md"
   ],
   "out_of_scope": [
-   "Moving @pm and phrase matching onto zig-regex literals (P9.09)",
-   "Changing any rule decision: the lab's zero-mismatch rule holds throughout"
+   "Making zig-regex itself faster (P2.21)",
+   "Reaching ModSecurity's latency, which needs P2.21 (P9.39)",
+   "Byte-mode and dotall compilation of `@rx` (zig-utils/zig-waf#89 and #90), which this builds on",
+   "Moving @pm and phrase matching onto zig-regex literals (P9.09)"
   ],
   "notes": [
-   "First lab results (zig-utils/zig-waf#6, zig-waf f6a40a2, CRS 4.28.0 at PL1, one Apple M-series run under load): zig-waf is the cheapest engine with no rules (3.0 µs and 8 allocations per request) and loads CRS fastest, so the gap is in rule evaluation, not embedding or loading",
-   "zig-waf makes fewer allocation calls than ModSecurity on a GET (6,222 against 11,557) but more bytes, so allocation size and copying matter more than count",
-   "The lab runs only on a machine with ModSecurity, Coraza and a CRS checkout; P9.38 puts it in CI"
+   "Profile in zig-utils/zig-waf#86 at 374f61a: 82% of crs-form-post's time is inside zig-regex's backtracker and under 3% in transformations. Moving every pattern onto the linear engine saved about 18% on CRS's 294 patterns, with the same verdicts",
+   "Four rules take 38% of the form's time (934100, 942360, 942190, 941140), and the top 25 take 74%",
+   "The lab's first results (zig-utils/zig-waf#6, f6a40a2): zig-waf is the cheapest engine with no rules and loads CRS fastest, so the gap is in rule evaluation"
   ],
   "accept": [
-   "`zig build lab` shows zig-waf's p50 at or below ModSecurity's on crs-get, crs-form-post and crs-json-post, on the same machine and run",
-   "Zero mismatches across every lab scenario, and the FTW and differential suites still pass",
-   "docs/benchmark-lab.md records the new results and what changed"
+   "`zig build lab` p50 drops on crs-get, crs-form-post and crs-json-post against 374f61a, on the same machine, with the numbers in docs/benchmark-lab.md",
+   "Zero mismatches across every lab scenario, and the FTW and differential suites still pass"
   ]
  },
  {
@@ -58,6 +56,61 @@
    "The lab job runs on pushes to main and passes with zero mismatches",
    "A run's results.md and results.json are downloadable from the job",
    "A deliberately wrong expected decision in a scenario fails the job"
+  ]
+ },
+ {
+  "key": "P2.21",
+  "goal": "zig-regex matches OWASP CRS 4.28.0's `@rx` patterns at least as fast as PCRE2 without JIT, so zig-waf can run CRS as fast as ModSecurity.",
+  "refs": [
+   "src/dfa.zig",
+   "src/backtrack.zig",
+   "src/literals",
+   "benchmarks/pcre2"
+  ],
+  "scope": [
+   "A benchmark of every CRS 4.28.0 `@rx` pattern against the zig-waf lab's inputs (its form fields, GET values, headers and five attacks), compiled the way zig-waf compiles them, next to PCRE2 10.47 with and without JIT",
+   "Profile the costliest patterns on the linear engine: CRS's large generated keyword alternations (PHP function names, Unix commands) and `(?i)` alternations with lazy quantifiers",
+   "Speed up those shapes in the lazy DFA, or with a literal prefilter in front of it, with identical match results",
+   "Record before and after numbers with the benchmark"
+  ],
+  "out_of_scope": [
+   "A JIT that emits machine code",
+   "Match and depth limits, and ruleset caches (zig-utils/zig-regex#16)",
+   "CRS patterns zig-regex cannot compile yet (zig-utils/zig-waf#89)"
+  ],
+  "notes": [
+   "Measured in zig-utils/zig-waf#86 on 294 patterns and 23 inputs: zig-regex 0.5.1 takes 41.1 ms as zig-waf compiles today and 33.6 ms span-only in byte mode, against 7.8 ms for PCRE2 without JIT and 0.9 ms with JIT. zig-regex 0.2.1 took 822 ms",
+   "benchmarks/pcre2 already has a PCRE2 harness to build the comparison on",
+   "CRS is Apache-2.0: vendored patterns carry its license and notice, or the benchmark reads them from a CRS checkout"
+  ],
+  "accept": [
+   "The CRS benchmark runs with one documented command",
+   "zig-regex's total time on it is at or below PCRE2 10.47 without JIT on the same machine",
+   "Match results equal PCRE2's for every pattern both engines compile, on every input",
+   "`zig build test` and the differential suites pass"
+  ]
+ },
+ {
+  "key": "P9.39",
+  "goal": "zig-waf runs CRS at or below ModSecurity 3.0.16's per-request latency in the benchmark lab, once zig-regex is fast enough to make that possible.",
+  "refs": [
+   "docs/benchmark-lab.md",
+   "build.zig.zon"
+  ],
+  "scope": [
+   "Move zig-waf onto the zig-regex release that carries P2.21",
+   "Rerun `zig build lab` and fix whatever is left on the zig-waf side",
+   "Record the results in docs/benchmark-lab.md"
+  ],
+  "out_of_scope": [
+   "Changing any rule decision: the lab's zero-mismatch rule holds throughout"
+  ],
+  "notes": [
+   "Split from P9.37 because the gap is mostly zig-regex's matching speed (zig-utils/zig-waf#86)"
+  ],
+  "accept": [
+   "`zig build lab` shows zig-waf's p50 at or below ModSecurity's on crs-get, crs-form-post and crs-json-post, on the same machine and run",
+   "Zero mismatches across every lab scenario, and the FTW and differential suites still pass"
   ]
  }
 ]
