@@ -20,7 +20,7 @@
   "__labels:stacksjs/ts-heic": "area:security,blocked,epic,guardian,needs-human,phase:8,ready,size:S,type:new",
   "__labels:stacksjs/ts-avif": "area:security,blocked,epic,guardian,needs-human,phase:8,ready,size:S,type:new",
   "__labels:stacksjs/ts-videos": "area:security,blocked,epic,guardian,needs-human,phase:8,ready,size:S,type:new",
-  "__labels:zig-utils/zig-waf": "area:capi,area:waf,blocked,epic,guardian,needs-human,phase:9,ready,size:M,size:S,type:experiment,type:new,type:perf",
+  "__labels:zig-utils/zig-waf": "area:bench,area:capi,area:waf,blocked,epic,guardian,needs-human,phase:9,ready,size:M,size:S,type:experiment,type:infra,type:new,type:perf",
   "__labels:stacksjs/ts-cloud": "area:deploy,area:waf,blocked,epic,guardian,needs-human,phase:12,phase:9,ready,size:M,size:S,type:fix,type:new",
   "__labels:craft-native/craft": "area:desktop,area:security,blocked,epic,guardian,needs-human,phase:11,ready,size:M,type:fix,type:new",
   "__labels:stacksjs/stx": "area:desktop,blocked,epic,guardian,needs-human,phase:11,ready,size:M,type:fix",
@@ -379,5 +379,7 @@
   "P2.20": "zig-utils/zig-mime#8",
   "P12.16": "mail-os/mail#122",
   "P12.17": "mail-os/mail#123",
-  "P12.18": "mail-os/mail#124"
+  "P12.18": "mail-os/mail#124",
+  "P9.37": "zig-utils/zig-waf#87",
+  "P9.38": "zig-utils/zig-waf#88"
 }

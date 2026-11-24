@@ -1,0 +1,63 @@
+[
+ {
+  "key": "P9.37",
+  "goal": "zig-waf runs OWASP CRS at least as fast as ModSecurity 3.0.16 per request, measured by the benchmark lab, with the form and JSON body paths fixed first.",
+  "refs": [
+   "docs/benchmark-lab.md",
+   "benchmarks/lab/scenarios",
+   "src/engine.zig",
+   "src/transformations.zig",
+   "src/rule_eval.zig",
+   "src/request.zig"
+  ],
+  "scope": [
+   "Profile the crs-get, crs-form-post and crs-json-post scenarios and record where each request's time and bytes go",
+   "Cut per-request allocation on the CRS path: zig-waf allocates 1.1 MiB per clean GET and 3.8 MiB per 973-byte form, against ModSecurity's 0.9 and 1.8 MiB",
+   "Fix the body path first: the form takes 8.4 ms against ModSecurity's 1.5 ms, and the JSON body 11.1 ms against 4.8 ms",
+   "Then the header and URI path: a clean GET takes 1.42 ms against ModSecurity's 0.80 ms and Coraza's 0.66 ms",
+   "Record before and after numbers from `zig build lab` in docs/benchmark-lab.md for each change"
+  ],
+  "out_of_scope": [
+   "Moving @pm and phrase matching onto zig-regex literals (P9.09)",
+   "Changing any rule decision: the lab's zero-mismatch rule holds throughout"
+  ],
+  "notes": [
+   "First lab results (zig-utils/zig-waf#6, zig-waf f6a40a2, CRS 4.28.0 at PL1, one Apple M-series run under load): zig-waf is the cheapest engine with no rules (3.0 µs and 8 allocations per request) and loads CRS fastest, so the gap is in rule evaluation, not embedding or loading",
+   "zig-waf makes fewer allocation calls than ModSecurity on a GET (6,222 against 11,557) but more bytes, so allocation size and copying matter more than count",
+   "The lab runs only on a machine with ModSecurity, Coraza and a CRS checkout; P9.38 puts it in CI"
+  ],
+  "accept": [
+   "`zig build lab` shows zig-waf's p50 at or below ModSecurity's on crs-get, crs-form-post and crs-json-post, on the same machine and run",
+   "Zero mismatches across every lab scenario, and the FTW and differential suites still pass",
+   "docs/benchmark-lab.md records the new results and what changed"
+  ]
+ },
+ {
+  "key": "P9.38",
+  "goal": "The three-engine benchmark lab runs in CI, so every change to zig-waf's request path is checked against ModSecurity and Coraza for decisions and recorded for speed.",
+  "refs": [
+   "docs/benchmark-lab.md",
+   "build.zig",
+   ".github/workflows"
+  ],
+  "scope": [
+   "A CI job that builds ModSecurity 3.0.16 and Coraza 3.7.0 at the commits CI already pins, checks out CRS 4.28.0, and runs `zig build lab -Doptimize=ReleaseFast`",
+   "Cache the libmodsecurity build so the job does not rebuild it on every run",
+   "Fail the job on any engine error or decision mismatch",
+   "Upload results.md and results.json as an artifact"
+  ],
+  "out_of_scope": [
+   "Failing CI on latency regressions: shared runners are too noisy for a timing gate",
+   "Making zig-waf faster (P9.37)"
+  ],
+  "notes": [
+   "The lab needs Zig 0.17.0-dev.1857 or newer because zig-bench, its memory sampler, requires it",
+   "Left out of zig-utils/zig-waf#6 because GitHub Actions did not start runs for recent pushes to zig-utils repositories, so a new job could not be tried"
+  ],
+  "accept": [
+   "The lab job runs on pushes to main and passes with zero mismatches",
+   "A run's results.md and results.json are downloadable from the job",
+   "A deliberately wrong expected decision in a scenario fails the job"
+  ]
+ }
+]
