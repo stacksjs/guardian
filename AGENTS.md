@@ -26,7 +26,7 @@ This repository is a Stacks app with a web dashboard, the `guardian` CLI, and a 
   - `repo` is an alias from `outline.config.ts`. A trailing `#N` links an existing issue instead of creating one.
 - `bodies-*.json`: goal, references, scope, out of scope, notes and acceptance for each new issue.
 - `bun scripts/issues/create.ts --dry-run [--show KEY] [--repo-summary]`, then `--preflight`, then a real run. The real run is resumable and never duplicates.
-- `bun scripts/issues/sync-ready.ts [--dry-run]` flips `ready` and `blocked` across every repository. The `issue-graph` workflow also runs it every 15 minutes.
+- `bun scripts/issues/sync-ready.ts [--dry-run]` flips `ready` and `blocked` across every repository. The `issue-graph` workflow also runs it on a 15-minute schedule as a backstop, which GitHub honours only every few hours, so run it yourself after every close.
 
 ---
 

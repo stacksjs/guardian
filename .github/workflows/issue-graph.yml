@@ -5,6 +5,8 @@ name: Issue graph
 # the public_repo scope, from an account that can triage every repository in
 # scripts/issues/outline.config.ts. A fine-grained token is limited to one owner and the graph spans
 # several organisations. Without the secret only this repository's issues can be relabelled.
+# GitHub runs scheduled workflows best effort: the 15-minute cron has fired every 5 to 9 hours in
+# practice. It is a backstop. Whoever closes an issue runs scripts/issues/sync-ready.ts (AGENTS.md).
 on:
   schedule:
     - cron: '*/15 * * * *'
