@@ -228,5 +228,30 @@
    "`(?:b|(a)){0,3}`, `(?:b|(a))*` and `(?:b|(a))+` on `ab` give group 1 = 0:1 in PCRE mode and unset in ECMAScript mode",
    "`zig build test` passes"
   ]
+ },
+ {
+  "key": "P2.27",
+  "goal": "In PCRE mode a lookbehind's captures and backreferences behave as PCRE2's, which matches the lookbehind body forwards from its start.",
+  "refs": [
+   "src/backtrack.zig",
+   "https://www.pcre.org/current/doc/html/pcre2pattern.html#lookbehind"
+  ],
+  "scope": [
+   "In PCRE mode, match a lookbehind body forwards: find the start the body can begin at, then run the body left to right to the current position, so groups are set before a reference to their right and a loop's last iteration is its rightmost",
+   "Keep the right-to-left matching for ECMAScript mode, whose lookbehinds run backwards by the spec",
+   "Tests comparing spans and captures with PCRE2 and, in ECMAScript mode, with node"
+  ],
+  "notes": [
+   "The engine matches every lookbehind right to left, as ECMAScript does, so in PCRE mode a reference to a group on its left sees the group unset and one to a group on its right sees it set",
+   "At 95cfb43: `(?<=(a)\\1)c` on `aac` finds no match (PCRE2 2:3, group 0:1); `(?<=\\1(a))c` on `aac` matches (PCRE2 no match); `(?<=(\\w){3})f` on `abcdef` captures `c` (PCRE2 `e`); `(?<=(a)(?<=\\1)b)c` on `abc` finds no match (PCRE2 2:3)",
+   "Before #62 an unset backreference matched empty in PCRE mode too, which made some of these match by accident (`(?<=(a)\\1)c` matched with group 1:2); the #62 comment lists the cases",
+   "PCRE2 requires a lookbehind to have a bounded length, so the forward start can be searched over a bounded window"
+  ],
+  "accept": [
+   "The four patterns in the notes give PCRE2's spans and captures in PCRE mode",
+   "ECMAScript-mode output is unchanged over the differential corpus",
+   "CRS still matches identically to PCRE2, with no slowdown in the CRS benchmark",
+   "`zig build test` passes"
+  ]
  }
 ]

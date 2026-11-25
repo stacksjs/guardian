@@ -55,6 +55,7 @@ P2.23 | regex | Backtracker: try every end of a loop body with choices in patter
 P2.24 | regex | Backtracker: take empty loop iterations as PCRE does in PCRE mode | lib | fix | M | P2.22
 P2.25 | regex | Backtracker: report OutOfMemory instead of a miss when an allocation fails | lib | fix | M | -
 P2.26 | regex | Backtracker: keep a group's capture from an earlier iteration in PCRE mode | lib | fix | S | P2.22
+P2.27 | regex | Backtracker: match lookbehinds forwards in PCRE mode, as PCRE2 does | lib | fix | M | P2.26
 
 ## P3 | P3 Engine foundations | Signed mmapped signature database, the hash index, and the first end-to-end scan.
 P3.01 | zav | Commit docs/DESIGN.md: the engine's performance and memory design | docs | infra | S | P1.13
