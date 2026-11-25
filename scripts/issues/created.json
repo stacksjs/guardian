@@ -4,7 +4,7 @@
   "__labels:zig-utils/zig-benchmarks": "area:bench,blocked,epic,guardian,needs-human,phase:1,ready,size:M,size:S,type:new,type:port",
   "__labels:zig-utils/zig-anti-virus": "area:bench,area:build,area:capi,area:cli,area:cve,area:daemon,area:db,area:docs,area:engine,area:formats,area:hash,area:host,area:match,area:runtime,area:update,area:watch,blocked,epic,guardian,needs-human,phase:1,phase:3,phase:4,phase:5,phase:6,phase:7,ready,size:L,size:M,size:S,type:experiment,type:gate,type:infra,type:new,type:perf,type:test",
   "__labels:zig-utils/zig-mime": "area:build,area:formats,blocked,epic,guardian,needs-human,phase:1,phase:2,ready,size:M,size:S,type:fix,type:gate,type:infra,type:new,type:port,type:test",
-  "__labels:zig-utils/zig-regex": "area:bench,area:lib,blocked,epic,guardian,needs-human,phase:2,ready,size:M,size:S,type:gate,type:new,type:perf",
+  "__labels:zig-utils/zig-regex": "area:bench,area:lib,blocked,epic,guardian,needs-human,phase:2,ready,size:M,size:S,type:fix,type:gate,type:new,type:perf",
   "__labels:zig-utils/zig-xml": "area:lib,blocked,epic,guardian,needs-human,phase:2,ready,size:M,type:new",
   "__labels:zig-utils/zig-cli": "area:cli,blocked,epic,guardian,needs-human,phase:2,ready,size:S,type:fix",
   "__labels:zig-utils/zig-config": "area:lib,blocked,epic,guardian,needs-human,phase:2,ready,size:S,type:fix",
@@ -383,5 +383,10 @@
   "P9.37": "zig-utils/zig-waf#87",
   "P9.38": "zig-utils/zig-waf#88",
   "P2.21": "zig-utils/zig-regex#56",
-  "P9.39": "zig-utils/zig-waf#91"
+  "P9.39": "zig-utils/zig-waf#91",
+  "P2.22": "zig-utils/zig-regex#57",
+  "P2.23": "zig-utils/zig-regex#59",
+  "P2.24": "zig-utils/zig-regex#60",
+  "P2.25": "zig-utils/zig-regex#61",
+  "P2.26": "zig-utils/zig-regex#62"
 }

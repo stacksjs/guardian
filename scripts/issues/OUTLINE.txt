@@ -50,6 +50,11 @@ P2.18 | zconfig | Environment overlay and file merge fixes needed by zavd config
 P2.19 | home | Compression package: zstd, brotli and lz4 are not the spec formats; make them conform | lib | fix | M | -
 P2.20 | mime | Fetch the benchmark dependency only when benchmarks are asked for | build | fix | S | -
 P2.21 | regex | Match CRS's @rx patterns at least as fast as PCRE2 without JIT | lib | perf | M | -
+P2.22 | regex | Backtracker misses matches when a lazy loop repeats a group of lazy quantifiers | lib | fix | M | -
+P2.23 | regex | Backtracker: try every end of a loop body with choices in patterns with a backreference | lib | fix | M | P2.22
+P2.24 | regex | Backtracker: take empty loop iterations as PCRE does in PCRE mode | lib | fix | M | P2.22
+P2.25 | regex | Backtracker: report OutOfMemory instead of a miss when an allocation fails | lib | fix | M | -
+P2.26 | regex | Backtracker: keep a group's capture from an earlier iteration in PCRE mode | lib | fix | S | P2.22
 
 ## P3 | P3 Engine foundations | Signed mmapped signature database, the hash index, and the first end-to-end scan.
 P3.01 | zav | Commit docs/DESIGN.md: the engine's performance and memory design | docs | infra | S | P1.13

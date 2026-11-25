@@ -26,7 +26,7 @@
    "The lab's first results (zig-utils/zig-waf#6, f6a40a2): zig-waf is the cheapest engine with no rules and loads CRS fastest, so the gap is in rule evaluation"
   ],
   "accept": [
-   "`zig build lab` p50 drops on crs-get, crs-form-post and crs-json-post against 374f61a, on the same machine, with the numbers in docs/benchmark-lab.md",
+   "`zig build lab` p50 drops on crs-get, crs-form-post and crs-json-post against 5666abd (every CRS rule compiling, GET 6.78 ms, form 20.40 ms, JSON 95.54 ms p50), on the same machine, with the numbers in docs/benchmark-lab.md",
    "Zero mismatches across every lab scenario, and the FTW and differential suites still pass"
   ]
  },
@@ -111,6 +111,122 @@
   "accept": [
    "`zig build lab` shows zig-waf's p50 at or below ModSecurity's on crs-get, crs-form-post and crs-json-post, on the same machine and run",
    "Zero mismatches across every lab scenario, and the FTW and differential suites still pass"
+  ]
+ },
+ {
+  "key": "P2.22",
+  "goal": "The backtracking engine finds every match PCRE2 finds for a lazy loop over a group of lazy quantifiers, so a capturing compile answers the same as a span-only one.",
+  "refs": [
+   "src/backtrack.zig",
+   "src/regex.zig"
+  ],
+  "scope": [
+   "Find why the backtracker gives up on `^(?:[^']*?'[^']*?'[^']*?)*?'` before trying the iteration counts that match",
+   "Fix it in the engine, with leftmost-first match spans and captures equal to PCRE2's",
+   "Tests for the reductions below and for the CRS 942xxx pattern they come from, each failing on 0.5.2",
+   "A differential run of lazy-loop shapes against PCRE2"
+  ],
+  "out_of_scope": [
+   "ECMAScript-mode disagreements on quantified alternations (zig-utils/zig-regex#30), unless the same cause"
+  ],
+  "notes": [
+   "Found by the zig-waf session while working zig-utils/zig-waf#87. With bytes, dot_all and multiline, `^(?:[^']*?'[^']*?'[^']*?)*?'` compiled with captures (backtracker) and run with Matcher.find gives no match on `a'b'c'` and `1' or 'a'='a`. PCRE2 10.47 matches [0,6) and [0,9), and compileWithoutCaptures (Thompson engines) matches both. All agree there is no match in `a'b'`",
+   "The greedy form `^(?:[^']*'[^']*'[^']*)*'` compiles to the Thompson engine and is right; the lazy form selects the backtracker",
+   "zig-waf now tests `@rx` with the span-only compile and captures only on a match, so its block decision is right, but its captured values can be missing"
+  ],
+  "accept": [
+   "Both reductions and the CRS pattern match where PCRE2 does, with PCRE2's spans, through compileWithFlags and through Matcher.find",
+   "A differential run of generated lazy-loop patterns finds no disagreement with PCRE2",
+   "`zig build test` passes"
+  ]
+ },
+ {
+  "key": "P2.23",
+  "goal": "Patterns with a backreference get the zig-utils/zig-regex#57 fix too: a loop over a body with choices gives part of an iteration back when what follows needs it, without going exponential.",
+  "refs": [
+   "src/backtrack.zig",
+   "docs/BENCHMARKS.md"
+  ],
+  "scope": [
+   "Make the loop memo valid with backreferences, keying its states on the capture spans the rest of the match reads, or bound the continuation matcher another way for these patterns",
+   "Route such patterns' loops to the continuation matcher as the #57 fix routes patterns without a backreference",
+   "Tests from the #57 reductions with a backreference added, each failing at zig-regex 9e67b53"
+  ],
+  "out_of_scope": [
+   "Atomic groups, which also keep the memo off"
+  ],
+  "notes": [
+   "The #57 fix leaves these patterns on the old matching because, without the memo, the continuation matcher explores such loops exponentially: `([\"'])(?:\\w+\\s?)*\\1` on a 26-byte quoted word timed out where the old engine took 174 steps"
+  ],
+  "accept": [
+   "`(['\"])(?:a|ab)*c\\1` and similar backreference forms of the #57 reductions match where PCRE2 does",
+   "`([\"'])(?:\\w+\\s?)*\\1` on a 26-byte quoted identifier stays within a few hundred steps",
+   "`zig build test` passes"
+  ]
+ },
+ {
+  "key": "P2.24",
+  "goal": "In PCRE mode the backtracker takes an empty loop iteration as PCRE2 does, so the remaining disagreements in `MODE=regex benchmarks/pcre2/diff.sh` go away.",
+  "refs": [
+   "src/backtrack.zig",
+   "benchmarks/pcre2/diff.zig",
+   "docs/BENCHMARKS.md"
+  ],
+  "scope": [
+   "Outside ECMAScript mode, let the old engine's loops accept an empty iteration and stop there (unbounded) or go on to the next copy (bounded), as the continuation matcher's PCRE-mode pieces already do",
+   "Keep ECMAScript mode's RepeatMatcher rule",
+   "Rerun the three-seed differential and update docs/BENCHMARKS.md"
+  ],
+  "out_of_scope": [
+   "Program (Thompson) engines, whose empty-iteration difference docs/BENCHMARKS.md already describes"
+  ],
+  "notes": [
+   "After #57, 52 disagreements remain over three seeds of 50,000 cases; all start where PCRE2's match starts and are longer, from loops whose body can match empty (`(?:.{0,2}?){1,3}`, `(?s:.*?){2,}`)",
+   "Also `(?:(?:a|ab)*?){1,3}` on `abcbc` gives [0,1] where PCRE2 gives [0,0]"
+  ],
+  "accept": [
+   "`MODE=regex benchmarks/pcre2/diff.sh 50000` on seeds 1 to 3 shows no disagreement from empty iterations",
+   "ECMAScript-mode results unchanged against node",
+   "`zig build test` passes"
+  ]
+ },
+ {
+  "key": "P2.25",
+  "goal": "The backtracker never reports a miss because an allocation failed: every allocation failure reaches the caller as OutOfMemory.",
+  "refs": [
+   "src/backtrack.zig"
+  ],
+  "scope": [
+   "Replace each `catch return null`, `catch return false`, `catch continue` and `catch return;` on an allocation in the old engine with a path that sets `match_error` (47 sites at 9e67b53)",
+   "An allocation-failure sweep test over patterns that reach each path, asserting every result is correct or OutOfMemory"
+  ],
+  "out_of_scope": [
+   "The continuation matcher, which already reports allocation failures"
+  ],
+  "notes": [
+   "The engine's own comment on `match_error` says choice traversal must not turn allocation failures into ordinary misses; these sites predate it"
+  ],
+  "accept": [
+   "An allocation-failure sweep of a loop-heavy pattern on the old engine gives the right answer or OutOfMemory at every failure point",
+   "`zig build test` passes"
+  ]
+ },
+ {
+  "key": "P2.26",
+  "goal": "In PCRE mode a group inside a loop keeps the capture an earlier iteration set when a later iteration does not set it, as PCRE2 does.",
+  "refs": [
+   "src/backtrack.zig"
+  ],
+  "scope": [
+   "Stop clearing a loop body's captures at each iteration in the old engine outside ECMAScript mode, for `*`, `+`, `?` and counted repeats",
+   "Tests comparing captures with PCRE2 and, in ECMAScript mode, with node"
+  ],
+  "notes": [
+   "`(?:b|(a)){0,3}` and `(?:b|(a))*` on `ab` give group 1 unset where PCRE2 gives 0:1, in 0.5.2 and at 9e67b53; the #57 fix already keeps them in the pieces it hands to the continuation matcher"
+  ],
+  "accept": [
+   "`(?:b|(a)){0,3}`, `(?:b|(a))*` and `(?:b|(a))+` on `ab` give group 1 = 0:1 in PCRE mode and unset in ECMAScript mode",
+   "`zig build test` passes"
   ]
  }
 ]
